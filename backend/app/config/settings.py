@@ -139,6 +139,13 @@ class Settings(BaseSettings):
         default="us-central1",
         validation_alias=AliasChoices("GCP_REGION", "gcp_region"),
     )
+    google_application_credentials: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "GOOGLE_APPLICATION_CREDENTIALS",
+            "google_application_credentials",
+        ),
+    )
     gemini_model: str = Field(
         default=_DEFAULT_GEMINI_MODEL,
         validation_alias=AliasChoices("GEMINI_MODEL", "gemini_model"),
@@ -186,11 +193,22 @@ class Settings(BaseSettings):
             self.gemini_model = _resolve_gemini_model(file_values["GEMINI_MODEL"])
         else:
             self.gemini_model = _resolve_gemini_model(self.gemini_model)
+        if "GOOGLE_APPLICATION_CREDENTIALS" in file_values:
+            self.google_application_credentials = file_values["GOOGLE_APPLICATION_CREDENTIALS"]
         # Keep process env aligned for downstream libs and GCP configuration
         os.environ["GEMINI_MODEL"] = self.gemini_model
         if self.gcp_project_id:
             os.environ["GCP_PROJECT_ID"] = self.gcp_project_id
         os.environ["GCP_REGION"] = self.gcp_region
+        if self.google_application_credentials:
+            credentials_path = Path(self.google_application_credentials)
+            if not credentials_path.is_absolute():
+                credentials_path = _PROJECT_ROOT / credentials_path
+            resolved_path = credentials_path.resolve()
+            import warnings
+            if not resolved_path.exists():
+                warnings.warn(f"[X-CDS] GOOGLE_APPLICATION_CREDENTIALS file not found at: {resolved_path}")
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(resolved_path)
         return self
 
 
