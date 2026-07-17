@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+chromadb
+langgraph
+python-dotenv
+pydantic-settings
