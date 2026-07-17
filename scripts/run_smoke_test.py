@@ -20,7 +20,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--live",
         action="store_true",
-        help="Run against the default service with real Gemini (requires GOOGLE_API_KEY).",
+        help="Run against the default service with real Gemini on Vertex AI.",
     )
     return parser
 
@@ -49,10 +49,7 @@ def run_offline_smoke(query: str) -> int:
 
 
 def run_live_smoke(query: str) -> int:
-    if not os.getenv("GOOGLE_API_KEY"):
-        print("Live smoke test requires GOOGLE_API_KEY.")
-        return 1
-
+    print("Running live smoke test on Vertex AI...")
     service = build_default_service()
     result = service.answer(query)
     if not result.contexts or not result.answer.strip():

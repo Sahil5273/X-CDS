@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
-from backend.app.config.settings import Settings, get_settings
+from pathlib import Path
+
+from backend.app.config.settings import (
+    Settings,
+    clear_settings_cache,
+    get_settings,
+)
 from backend.app.pipeline.service import XRAGService, build_default_service
 
 _service: XRAGService | None = None
+_ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
 
 
 def get_app_settings() -> Settings:
@@ -17,7 +24,13 @@ def get_service() -> XRAGService:
 
     global _service
     if _service is None:
-        _service = build_default_service(get_settings())
+        clear_settings_cache()
+        settings = get_settings()
+        print(
+            f"[X-CDS] Using Gemini model: {settings.gemini_model} "
+            f"(env file: {_ENV_FILE})"
+        )
+        _service = build_default_service(settings)
     return _service
 
 

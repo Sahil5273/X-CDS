@@ -55,8 +55,8 @@ class EndToEndSmokeTests(unittest.TestCase):
 
 
 @unittest.skipUnless(
-    os.getenv("RUN_LIVE_SMOKE") == "1" and os.getenv("GOOGLE_API_KEY"),
-    "Set RUN_LIVE_SMOKE=1 and GOOGLE_API_KEY for live Gemini smoke test",
+    os.getenv("RUN_LIVE_SMOKE") == "1",
+    "Set RUN_LIVE_SMOKE=1 for live Gemini smoke test",
 )
 class LiveEndToEndSmokeTests(unittest.TestCase):
     def test_live_default_service_answer(self) -> None:

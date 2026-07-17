@@ -67,6 +67,67 @@ class GeminiGenerationNode:
         }
 
 
+class RobustChatVertexAI:
+    """Wrapper that handles retries and falls back to lighter models on 503/429 errors using Vertex AI."""
+
+    def __init__(self, primary_model: str, settings: Settings) -> None:
+        self.primary_model = primary_model
+        self.settings = settings
+        self.fallback_model = "gemini-3.1-flash-lite"
+
+    def invoke(self, messages: list[Any]) -> Any:
+        import logging
+        import time
+        from langchain_google_vertexai import ChatVertexAI
+
+        logger = logging.getLogger("backend.app.llm.generation")
+        models_to_try = [self.primary_model]
+        if self.primary_model != self.fallback_model:
+            models_to_try.append(self.fallback_model)
+
+        last_error = None
+        for model in models_to_try:
+            for attempt in range(4):
+                try:
+                    llm = ChatVertexAI(
+                        model=model,
+                        project=self.settings.gcp_project_id,
+                        location=self.settings.gcp_region,
+                        temperature=self.settings.gemini_temperature,
+                        max_retries=1,
+                    )
+                    if hasattr(llm, "model"):
+                        llm.model = model
+                    return llm.invoke(messages)
+                except Exception as e:
+                    last_error = e
+                    err_str = str(e)
+                    is_transient = (
+                        "503" in err_str
+                        or "429" in err_str
+                        or "temporarily unavailable" in err_str.lower()
+                        or "high demand" in err_str.lower()
+                    )
+                    if not is_transient:
+                        raise e
+
+                    logger.warning(
+                        f"Attempt {attempt + 1} failed for model '{model}' with transient error: {e}. "
+                        f"Retrying..."
+                    )
+                    if attempt < 3:
+                        time.sleep(2 ** attempt)
+
+            logger.error(
+                f"Model '{model}' failed all retry attempts with transient error: {last_error}. "
+                f"Trying fallback model..."
+            )
+
+        if last_error:
+            raise last_error
+        raise RuntimeError("Generation failed with unknown error")
+
+
 def generation_node(state: dict[str, Any]) -> dict[str, Any]:
     """Default LangGraph node entrypoint using environment-backed settings."""
 
@@ -74,16 +135,11 @@ def generation_node(state: dict[str, Any]) -> dict[str, Any]:
 
 
 def _build_gemini_chat_model(settings: Settings) -> ChatModel:
-    if not settings.google_api_key:
-        raise ValueError("GOOGLE_API_KEY is required for Gemini generation")
+    model_name = settings.gemini_model.strip() or "gemini-3.5-flash"
+    if any(deprecated in model_name for deprecated in ["1.5-flash", "2.0-flash", "2.5-flash"]):
+        model_name = "gemini-3.5-flash"
 
-    from langchain_google_genai import ChatGoogleGenerativeAI
-
-    return ChatGoogleGenerativeAI(
-        model=settings.gemini_model,
-        google_api_key=settings.google_api_key,
-        temperature=settings.gemini_temperature,
-    )
+    return RobustChatVertexAI(model_name, settings)
 
 
 def _to_langchain_messages(messages: list[tuple[str, str]]) -> list[Any]:

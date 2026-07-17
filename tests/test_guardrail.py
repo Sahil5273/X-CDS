@@ -120,11 +120,11 @@ class SelfCorrectionLoopTests(unittest.TestCase):
         )
         workflow = XRAGGenerationWorkflow(
             settings=Settings(
-                google_api_key="test-key",
+                gcp_project_id="test-project",
                 langgraph_max_generation_attempts=3,
             ),
             node=GeminiGenerationNode(
-                settings=Settings(google_api_key="test-key"),
+                settings=Settings(gcp_project_id="test-project"),
                 llm=llm,
             ),
         )
@@ -156,11 +156,11 @@ class SelfCorrectionLoopTests(unittest.TestCase):
         )
         workflow = XRAGGenerationWorkflow(
             settings=Settings(
-                google_api_key="test-key",
+                gcp_project_id="test-project",
                 langgraph_max_generation_attempts=2,
             ),
             node=GeminiGenerationNode(
-                settings=Settings(google_api_key="test-key"),
+                settings=Settings(gcp_project_id="test-project"),
                 llm=llm,
             ),
         )

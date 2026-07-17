@@ -107,7 +107,8 @@ def build_smoke_service(
     """Construct a fully wired X-RAG service for smoke testing."""
 
     settings = Settings(
-        google_api_key=os.getenv("GOOGLE_API_KEY", "test-key"),
+        gcp_project_id=os.getenv("GCP_PROJECT_ID", "test-project"),
+        gcp_region=os.getenv("GCP_REGION", "us-central1"),
         langgraph_max_generation_attempts=2,
         rerank_top_k=2,
     )

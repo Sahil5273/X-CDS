@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+import unittest.mock
 from typing import Any
 
 from backend.app.config.settings import Settings
@@ -93,7 +94,7 @@ class GeminiGenerationNodeTests(unittest.TestCase):
             ).model_dump()
         ]
         node = GeminiGenerationNode(
-            settings=Settings(google_api_key="test-key"),
+            settings=Settings(gcp_project_id="test-project"),
             llm=FakeChatModel(
                 "For hypertension, ACE inhibitors are a first-line option [1]."
             ),
@@ -142,9 +143,9 @@ class XRAGGenerationWorkflowTests(unittest.TestCase):
             ).model_dump()
         ]
         workflow = XRAGGenerationWorkflow(
-            settings=Settings(google_api_key="test-key"),
+            settings=Settings(gcp_project_id="test-project"),
             node=GeminiGenerationNode(
-                settings=Settings(google_api_key="test-key"),
+                settings=Settings(gcp_project_id="test-project"),
                 llm=FakeChatModel("ACE inhibitors reduce blood pressure [1]."),
             ),
         )
@@ -154,6 +155,96 @@ class XRAGGenerationWorkflowTests(unittest.TestCase):
         self.assertIn("[1]", result["answer"])
         self.assertEqual(result["citations"][0]["pmcid"], "PMC1")
         self.assertTrue(result["validation_passed"])
+
+
+class RobustChatVertexAITests(unittest.TestCase):
+    @unittest.mock.patch("langchain_google_vertexai.ChatVertexAI")
+    def test_successful_invocation_on_first_try(self, mock_chat_class: unittest.mock.MagicMock) -> None:
+        mock_instance = unittest.mock.MagicMock()
+        mock_instance.invoke.return_value = "Response content"
+        mock_chat_class.return_value = mock_instance
+
+        from backend.app.llm.generation import RobustChatVertexAI
+        from backend.app.config.settings import Settings
+
+        wrapper = RobustChatVertexAI("gemini-3.5-flash", Settings(gcp_project_id="test-project", gcp_region="us-central1"))
+        res = wrapper.invoke([])
+
+        self.assertEqual(res, "Response content")
+        mock_chat_class.assert_called_once_with(
+            model="gemini-3.5-flash",
+            project="test-project",
+            location="us-central1",
+            temperature=0.1,
+            max_retries=1,
+        )
+
+    @unittest.mock.patch("time.sleep", return_value=None)  # disable sleeping
+    @unittest.mock.patch("langchain_google_vertexai.ChatVertexAI")
+    def test_retries_on_transient_error_and_succeeds(self, mock_chat_class: unittest.mock.MagicMock, mock_sleep: unittest.mock.MagicMock) -> None:
+        # First 2 attempts fail with a transient error (503), 3rd attempt succeeds
+        mock_fail = unittest.mock.MagicMock()
+        mock_fail.invoke.side_effect = Exception("503 Service Unavailable")
+
+        mock_success = unittest.mock.MagicMock()
+        mock_success.invoke.return_value = "Success content"
+
+        mock_chat_class.side_effect = [mock_fail, mock_fail, mock_success]
+
+        from backend.app.llm.generation import RobustChatVertexAI
+        from backend.app.config.settings import Settings
+
+        wrapper = RobustChatVertexAI("gemini-3.5-flash", Settings(gcp_project_id="test-project", gcp_region="us-central1"))
+        res = wrapper.invoke([])
+
+        self.assertEqual(res, "Success content")
+        self.assertEqual(mock_chat_class.call_count, 3)
+        self.assertEqual(mock_sleep.call_count, 2)
+
+    @unittest.mock.patch("time.sleep", return_value=None)
+    @unittest.mock.patch("langchain_google_vertexai.ChatVertexAI")
+    def test_falls_back_to_flash_lite_when_primary_exhausted(self, mock_chat_class: unittest.mock.MagicMock, mock_sleep: unittest.mock.MagicMock) -> None:
+        # Primary model (gemini-3.5-flash) fails 4 times with transient error
+        # Fallback model (gemini-3.1-flash-lite) succeeds on its first attempt
+        mock_fail = unittest.mock.MagicMock()
+        mock_fail.invoke.side_effect = Exception("503 Service Unavailable")
+
+        mock_success = unittest.mock.MagicMock()
+        mock_success.invoke.return_value = "Fallback content"
+
+        # 4 fails for primary, 1 success for fallback
+        mock_chat_class.side_effect = [mock_fail] * 4 + [mock_success]
+
+        from backend.app.llm.generation import RobustChatVertexAI
+        from backend.app.config.settings import Settings
+
+        wrapper = RobustChatVertexAI("gemini-3.5-flash", Settings(gcp_project_id="test-project", gcp_region="us-central1"))
+        res = wrapper.invoke([])
+
+        self.assertEqual(res, "Fallback content")
+        # 4 attempts on primary + 1 attempt on fallback = 5 total
+        self.assertEqual(mock_chat_class.call_count, 5)
+        # Verify the 5th call was instantiated with fallback model
+        last_call_args = mock_chat_class.call_args_list[-1]
+        self.assertEqual(last_call_args.kwargs["model"], "gemini-3.1-flash-lite")
+
+    @unittest.mock.patch("langchain_google_vertexai.ChatVertexAI")
+    def test_raises_non_transient_error_immediately(self, mock_chat_class: unittest.mock.MagicMock) -> None:
+        mock_instance = unittest.mock.MagicMock()
+        mock_instance.invoke.side_effect = Exception("401 Unauthorized")
+        mock_chat_class.return_value = mock_instance
+
+        from backend.app.llm.generation import RobustChatVertexAI
+        from backend.app.config.settings import Settings
+
+        wrapper = RobustChatVertexAI("gemini-3.5-flash", Settings(gcp_project_id="test-project", gcp_region="us-central1"))
+
+        with self.assertRaises(Exception) as context:
+            wrapper.invoke([])
+
+        self.assertIn("401", str(context.exception))
+        # Should not retry or fallback
+        self.assertEqual(mock_chat_class.call_count, 1)
 
 
 if __name__ == "__main__":
