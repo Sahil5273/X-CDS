@@ -22,3 +22,10 @@ data/*
 .DS_Store
 Thumbs.db
 .vscode/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
