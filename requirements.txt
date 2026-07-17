@@ -7,6 +7,7 @@ pydantic-settings
 sentence-transformers
 rank_bm25
 langchain-google-vertexai
+langchain-google-genai
 langchain-core
 ragas
 datasets

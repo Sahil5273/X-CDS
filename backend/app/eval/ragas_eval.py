@@ -108,9 +108,43 @@ def run_ragas_evaluation(examples: Sequence[EvalExample]) -> EvalReport:
     if not examples:
         raise ValueError("evaluation examples cannot be empty")
 
+    import sys
+    from types import ModuleType
+    import langchain_google_genai
+
+    # Mock langchain_community.chat_models.vertexai for Ragas compatibility
+    if "langchain_community.chat_models.vertexai" not in sys.modules:
+        mock_module = ModuleType("langchain_community.chat_models.vertexai")
+        mock_module.ChatVertexAI = langchain_google_genai.ChatGoogleGenerativeAI
+        sys.modules["langchain_community.chat_models.vertexai"] = mock_module
+
     from datasets import Dataset
     from ragas import evaluate
-    from ragas.metrics import answer_relevancy, context_precision, faithfulness
+    from ragas.metrics import answer_relevancy, context_precision, faithfulness, context_recall
+    from ragas.llms import LangchainLLMWrapper
+    from ragas.embeddings import LangchainEmbeddingsWrapper
+    from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+    from backend.app.config.settings import get_settings
+
+    settings = get_settings()
+
+    evaluator_llm = LangchainLLMWrapper(
+        ChatGoogleGenerativeAI(
+            model=settings.gemini_model,
+            vertexai=True,
+            project=settings.gcp_project_id,
+            location=settings.gcp_region,
+            temperature=0.0,
+        )
+    )
+    evaluator_embeddings = LangchainEmbeddingsWrapper(
+        GoogleGenerativeAIEmbeddings(
+            model=settings.eval_embedding_model,
+            vertexai=True,
+            project=settings.gcp_project_id,
+            location=settings.gcp_region,
+        )
+    )
 
     dataset = Dataset.from_dict(
         {
@@ -122,14 +156,19 @@ def run_ragas_evaluation(examples: Sequence[EvalExample]) -> EvalReport:
     )
     result = evaluate(
         dataset,
-        metrics=[faithfulness, answer_relevancy, context_precision],
+        metrics=[faithfulness, answer_relevancy, context_precision, context_recall],
+        llm=evaluator_llm,
+        embeddings=evaluator_embeddings,
     )
-    scores = dict(result)
-    metrics = {
-        key: float(value)
-        for key, value in scores.items()
-        if isinstance(value, (int, float))
-    }
+    # Compute aggregate mean for each metric from row-by-row scores
+    metrics = {}
+    scores_list = result.scores
+    if scores_list:
+        keys = scores_list[0].keys()
+        for key in keys:
+            vals = [row[key] for row in scores_list if row[key] is not None]
+            if vals:
+                metrics[key] = float(sum(vals) / len(vals))
     details = [
         {
             "question": example.question,

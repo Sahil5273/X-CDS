@@ -158,7 +158,7 @@ class XRAGGenerationWorkflowTests(unittest.TestCase):
 
 
 class RobustChatVertexAITests(unittest.TestCase):
-    @unittest.mock.patch("langchain_google_vertexai.ChatVertexAI")
+    @unittest.mock.patch("langchain_google_genai.ChatGoogleGenerativeAI")
     def test_successful_invocation_on_first_try(self, mock_chat_class: unittest.mock.MagicMock) -> None:
         mock_instance = unittest.mock.MagicMock()
         mock_instance.invoke.return_value = "Response content"
@@ -173,6 +173,7 @@ class RobustChatVertexAITests(unittest.TestCase):
         self.assertEqual(res, "Response content")
         mock_chat_class.assert_called_once_with(
             model="gemini-3.5-flash",
+            vertexai=True,
             project="test-project",
             location="us-central1",
             temperature=0.1,
@@ -180,7 +181,7 @@ class RobustChatVertexAITests(unittest.TestCase):
         )
 
     @unittest.mock.patch("time.sleep", return_value=None)  # disable sleeping
-    @unittest.mock.patch("langchain_google_vertexai.ChatVertexAI")
+    @unittest.mock.patch("langchain_google_genai.ChatGoogleGenerativeAI")
     def test_retries_on_transient_error_and_succeeds(self, mock_chat_class: unittest.mock.MagicMock, mock_sleep: unittest.mock.MagicMock) -> None:
         # First 2 attempts fail with a transient error (503), 3rd attempt succeeds
         mock_fail = unittest.mock.MagicMock()
@@ -202,7 +203,7 @@ class RobustChatVertexAITests(unittest.TestCase):
         self.assertEqual(mock_sleep.call_count, 2)
 
     @unittest.mock.patch("time.sleep", return_value=None)
-    @unittest.mock.patch("langchain_google_vertexai.ChatVertexAI")
+    @unittest.mock.patch("langchain_google_genai.ChatGoogleGenerativeAI")
     def test_falls_back_to_flash_lite_when_primary_exhausted(self, mock_chat_class: unittest.mock.MagicMock, mock_sleep: unittest.mock.MagicMock) -> None:
         # Primary model (gemini-3.5-flash) fails 4 times with transient error
         # Fallback model (gemini-3.1-flash-lite) succeeds on its first attempt
@@ -228,7 +229,7 @@ class RobustChatVertexAITests(unittest.TestCase):
         last_call_args = mock_chat_class.call_args_list[-1]
         self.assertEqual(last_call_args.kwargs["model"], "gemini-3.1-flash-lite")
 
-    @unittest.mock.patch("langchain_google_vertexai.ChatVertexAI")
+    @unittest.mock.patch("langchain_google_genai.ChatGoogleGenerativeAI")
     def test_raises_non_transient_error_immediately(self, mock_chat_class: unittest.mock.MagicMock) -> None:
         mock_instance = unittest.mock.MagicMock()
         mock_instance.invoke.side_effect = Exception("401 Unauthorized")

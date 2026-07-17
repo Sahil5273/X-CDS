@@ -110,6 +110,10 @@ class Settings(BaseSettings):
         default="BAAI/bge-small-en-v1.5",
         validation_alias=AliasChoices("EMBEDDING_MODEL_NAME", "embedding_model_name"),
     )
+    eval_embedding_model: str = Field(
+        default="models/text-embedding-004",
+        validation_alias=AliasChoices("EVAL_EMBEDDING_MODEL", "eval_embedding_model"),
+    )
     embedding_device: str = Field(
         default="cpu",
         validation_alias=AliasChoices("EMBEDDING_DEVICE", "embedding_device"),
@@ -195,8 +199,11 @@ class Settings(BaseSettings):
             self.gemini_model = _resolve_gemini_model(self.gemini_model)
         if "GOOGLE_APPLICATION_CREDENTIALS" in file_values:
             self.google_application_credentials = file_values["GOOGLE_APPLICATION_CREDENTIALS"]
+        if "EVAL_EMBEDDING_MODEL" in file_values:
+            self.eval_embedding_model = file_values["EVAL_EMBEDDING_MODEL"]
         # Keep process env aligned for downstream libs and GCP configuration
         os.environ["GEMINI_MODEL"] = self.gemini_model
+        os.environ["EVAL_EMBEDDING_MODEL"] = self.eval_embedding_model
         if self.gcp_project_id:
             os.environ["GCP_PROJECT_ID"] = self.gcp_project_id
         os.environ["GCP_REGION"] = self.gcp_region

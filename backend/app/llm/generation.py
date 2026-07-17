@@ -54,17 +54,27 @@ class GeminiGenerationNode:
         )
         response = self.llm.invoke(messages)
         answer = _extract_text(response)
-        output = build_generation_output(query, answer, contexts)
         attempts = int(state.get("generation_attempts", 0)) + 1
 
-        return {
-            "answer": output.answer_markdown,
-            "citations": [citation.model_dump() for citation in output.citations],
-            "cited_indices": output.cited_indices,
-            "generation_attempts": attempts,
-            "validation_passed": False,
-            "error": None,
-        }
+        try:
+            output = build_generation_output(query, answer, contexts)
+            return {
+                "answer": output.answer_markdown,
+                "citations": [citation.model_dump() for citation in output.citations],
+                "cited_indices": output.cited_indices,
+                "generation_attempts": attempts,
+                "validation_passed": False,
+                "error": None,
+            }
+        except Exception as e:
+            return {
+                "answer": answer,
+                "citations": [],
+                "cited_indices": [],
+                "generation_attempts": attempts,
+                "validation_passed": False,
+                "error": str(e),
+            }
 
 
 class RobustChatVertexAI:
@@ -78,7 +88,7 @@ class RobustChatVertexAI:
     def invoke(self, messages: list[Any]) -> Any:
         import logging
         import time
-        from langchain_google_vertexai import ChatVertexAI
+        from langchain_google_genai import ChatGoogleGenerativeAI
 
         logger = logging.getLogger("backend.app.llm.generation")
         models_to_try = [self.primary_model]
@@ -89,8 +99,9 @@ class RobustChatVertexAI:
         for model in models_to_try:
             for attempt in range(4):
                 try:
-                    llm = ChatVertexAI(
+                    llm = ChatGoogleGenerativeAI(
                         model=model,
+                        vertexai=True,
                         project=self.settings.gcp_project_id,
                         location=self.settings.gcp_region,
                         temperature=self.settings.gemini_temperature,
