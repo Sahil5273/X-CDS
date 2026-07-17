@@ -1,0 +1,4 @@
+- `[x]` Add `eval_embedding_model` to `Settings` in `backend/app/config/settings.py`
+- `[x]` Add `EVAL_EMBEDDING_MODEL` to `.env` and `.env.example`
+- `[x]` Update Ragas evaluation metrics and embeddings in `backend/app/eval/ragas_eval.py`
+- `[x]` Verify changes using unit tests and evaluation script
