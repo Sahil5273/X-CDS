@@ -44,7 +44,14 @@ class GeminiGenerationNode:
         if not contexts:
             raise ValueError("contexts are required for generation")
 
-        messages = _to_langchain_messages(build_generation_messages(query, contexts))
+        correction_feedback = state.get("correction_feedback")
+        messages = _to_langchain_messages(
+            build_generation_messages(
+                query,
+                contexts,
+                correction_feedback=str(correction_feedback or "") or None,
+            )
+        )
         response = self.llm.invoke(messages)
         answer = _extract_text(response)
         output = build_generation_output(query, answer, contexts)
@@ -55,6 +62,7 @@ class GeminiGenerationNode:
             "citations": [citation.model_dump() for citation in output.citations],
             "cited_indices": output.cited_indices,
             "generation_attempts": attempts,
+            "validation_passed": False,
             "error": None,
         }
 

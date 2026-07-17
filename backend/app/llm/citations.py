@@ -80,6 +80,10 @@ class XRAGState(TypedDict, total=False):
     citations: list[dict[str, Any]]
     cited_indices: list[int]
     generation_attempts: int
+    max_generation_attempts: int
+    validation_passed: bool
+    validation_issues: list[dict[str, Any]]
+    correction_feedback: str | None
     error: str | None
 
 

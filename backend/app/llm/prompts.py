@@ -34,6 +34,8 @@ def format_context_block(contexts: list[SourceContext]) -> str:
 def build_generation_messages(
     query: str,
     contexts: list[SourceContext],
+    *,
+    correction_feedback: str | None = None,
 ) -> list[tuple[str, str]]:
     """Return role/content pairs for LangChain chat models."""
 
@@ -45,4 +47,10 @@ def build_generation_messages(
         f"{context_block}\n\n"
         "Write a markdown answer with explicit inline citations such as [1]."
     )
+    if correction_feedback and correction_feedback.strip():
+        user_prompt += (
+            "\n\nPrevious answer failed deterministic citation validation.\n"
+            f"{correction_feedback.strip()}\n"
+            "Regenerate a corrected markdown answer."
+        )
     return [("system", SYSTEM_PROMPT), ("user", user_prompt)]

@@ -145,7 +145,7 @@ class XRAGGenerationWorkflowTests(unittest.TestCase):
             settings=Settings(google_api_key="test-key"),
             node=GeminiGenerationNode(
                 settings=Settings(google_api_key="test-key"),
-                llm=FakeChatModel("Use ACE inhibitors for hypertension [1]."),
+                llm=FakeChatModel("ACE inhibitors reduce blood pressure [1]."),
             ),
         )
 
@@ -153,6 +153,7 @@ class XRAGGenerationWorkflowTests(unittest.TestCase):
 
         self.assertIn("[1]", result["answer"])
         self.assertEqual(result["citations"][0]["pmcid"], "PMC1")
+        self.assertTrue(result["validation_passed"])
 
 
 if __name__ == "__main__":
