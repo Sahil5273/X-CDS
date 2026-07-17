@@ -4,3 +4,4 @@ chromadb
 langgraph
 python-dotenv
 pydantic-settings
+sentence-transformers
