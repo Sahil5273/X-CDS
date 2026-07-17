@@ -1,0 +1,2 @@
+{"question": "What do ACE inhibitors do in hypertension?", "answer": "ACE inhibitors reduce blood pressure in hypertension [1].", "contexts": ["ACE inhibitors reduce blood pressure in hypertension."], "ground_truth": "ACE inhibitors reduce blood pressure."}
+{"question": "Are ACE inhibitors used for blood pressure control?", "answer": "Yes, ACE inhibitors reduce blood pressure [1].", "contexts": ["ACE inhibitors reduce blood pressure in hypertension."], "ground_truth": "ACE inhibitors are used to reduce blood pressure."}

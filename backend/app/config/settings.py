@@ -19,6 +19,8 @@ class Settings(BaseSettings):
 
     app_name: str = Field(default="X-CDS", alias="APP_NAME")
     app_env: str = Field(default="local", alias="APP_ENV")
+    app_host: str = Field(default="127.0.0.1", alias="APP_HOST")
+    app_port: int = Field(default=8000, alias="APP_PORT")
     log_level: str = Field(default="info", alias="LOG_LEVEL")
 
     data_dir: str = Field(default="./data", alias="DATA_DIR")
@@ -26,6 +28,10 @@ class Settings(BaseSettings):
     chroma_collection_name: str = Field(
         default="xcds_biomedical",
         alias="CHROMA_COLLECTION_NAME",
+    )
+    bm25_corpus_path: str = Field(
+        default="./data/bm25_corpus.jsonl",
+        alias="BM25_CORPUS_PATH",
     )
 
     embedding_model_name: str = Field(
