@@ -5,3 +5,4 @@ langgraph
 python-dotenv
 pydantic-settings
 sentence-transformers
+rank_bm25
