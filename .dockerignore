@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Local data
+data/*
+!data/.gitkeep
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Git / editor
+.git/
+.gitignore
+.vscode/
+.DS_Store
+
+# Frontend build artifacts
+frontend/node_modules/
+frontend/dist/
+
+# Tests cache
+tests/__pycache__/

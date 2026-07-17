@@ -1,0 +1,58 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: xcds-backend
+    env_file:
+      - .env
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8000
+      DATA_DIR: /app/data
+      CHROMA_PERSIST_DIR: /app/data/chroma
+      BM25_CORPUS_PATH: /app/data/bm25_corpus.jsonl
+    ports:
+      - "8000:8000"
+    volumes:
+      - xcds-data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/api/v1/health"]
+      interval: 20s
+      timeout: 10s
+      retries: 8
+      start_period: 120s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: xcds-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  smoke:
+    profiles: ["smoke"]
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: xcds-smoke
+    env_file:
+      - .env
+    environment:
+      DATA_DIR: /app/data
+      CHROMA_PERSIST_DIR: /app/data/chroma
+      BM25_CORPUS_PATH: /app/data/bm25_corpus.jsonl
+    volumes:
+      - xcds-data:/app/data
+    depends_on:
+      backend:
+        condition: service_healthy
+    entrypoint: ["python", "-m", "scripts.run_smoke_test"]
+    command: []
+
+volumes:
+  xcds-data:
