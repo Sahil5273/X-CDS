@@ -6,3 +6,5 @@ python-dotenv
 pydantic-settings
 sentence-transformers
 rank_bm25
+langchain-google-genai
+langchain-core
