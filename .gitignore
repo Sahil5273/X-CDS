@@ -18,6 +18,10 @@ gcp-key.json
 # Local data and generated indexes
 data/*
 !data/.gitkeep
+!data/bioc_chunks.jsonl
+!data/bm25_corpus.jsonl
+!data/chroma/
+!data/chroma/**
 
 # OS and editor noise
 .DS_Store
