@@ -10,6 +10,10 @@ venv/
 # Local data
 data/*
 !data/.gitkeep
+!data/bioc_chunks.jsonl
+!data/bm25_corpus.jsonl
+!data/chroma/
+!data/chroma/**
 
 # Environment
 .env
