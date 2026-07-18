@@ -130,7 +130,7 @@ def run_ragas_evaluation(examples: Sequence[EvalExample]) -> EvalReport:
 
     evaluator_llm = LangchainLLMWrapper(
         ChatGoogleGenerativeAI(
-            model=settings.gemini_model,
+            model=settings.eval_llm_model,
             vertexai=True,
             project=settings.gcp_project_id,
             location=settings.gcp_region,

@@ -114,6 +114,10 @@ class Settings(BaseSettings):
         default="models/text-embedding-004",
         validation_alias=AliasChoices("EVAL_EMBEDDING_MODEL", "eval_embedding_model"),
     )
+    eval_llm_model: str = Field(
+        default="gemini-2.5-pro",
+        validation_alias=AliasChoices("EVAL_LLM_MODEL", "eval_llm_model"),
+    )
     embedding_device: str = Field(
         default="cpu",
         validation_alias=AliasChoices("EMBEDDING_DEVICE", "embedding_device"),
@@ -201,9 +205,12 @@ class Settings(BaseSettings):
             self.google_application_credentials = file_values["GOOGLE_APPLICATION_CREDENTIALS"]
         if "EVAL_EMBEDDING_MODEL" in file_values:
             self.eval_embedding_model = file_values["EVAL_EMBEDDING_MODEL"]
+        if "EVAL_LLM_MODEL" in file_values:
+            self.eval_llm_model = file_values["EVAL_LLM_MODEL"]
         # Keep process env aligned for downstream libs and GCP configuration
         os.environ["GEMINI_MODEL"] = self.gemini_model
         os.environ["EVAL_EMBEDDING_MODEL"] = self.eval_embedding_model
+        os.environ["EVAL_LLM_MODEL"] = self.eval_llm_model
         if self.gcp_project_id:
             os.environ["GCP_PROJECT_ID"] = self.gcp_project_id
         os.environ["GCP_REGION"] = self.gcp_region
