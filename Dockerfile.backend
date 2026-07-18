@@ -18,7 +18,7 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 COPY backend ./backend
 COPY scripts ./scripts
 COPY tests/fixtures ./tests/fixtures
-COPY data/.gitkeep ./data/.gitkeep
+COPY data ./data
 
 RUN chmod +x /app/scripts/docker-entrypoint.sh
 
