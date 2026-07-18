@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "sahil-portfolio-76e8d"
+  },
+  "targets": {
+    "sahil-portfolio-76e8d": {
+      "hosting": {
+        "xcds-site": [
+          "x-cds-live"
+        ]
+      }
+    }
+  }
+}
