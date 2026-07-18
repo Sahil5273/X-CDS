@@ -1,8 +1,22 @@
-# X-CDS
+# X-CDS: Explainable Clinical Decision Support System
 
-**Explainable RAG (X-RAG) for clinical decision support.**
+X-CDS is a state-of-the-art Clinical Decision Support System designed to assist medical practitioners by retrieving and synthesizing clinical literature with mathematically guaranteed factual grounding. 
 
-X-CDS ingests biomedical literature (PubMed Central BioC JSON), indexes it with dense + sparse retrieval, re-ranks evidence with a cross-encoder, generates Gemini answers through LangGraph, and enforces deterministic citation guardrails before returning markdown answers with clickable source mappings in the React UI.
+By integrating a stateful self-correction agentic loop, X-CDS addresses the core challenge of large language model (LLM) hallucinations in critical medical environments.
+
+## Core Features & Architecture
+
+*   **Hybrid Ingestion & Retrieval:** Merges dense semantic embeddings (ChromaDB + `text-embedding-004`) with sparse lexical search (BM25) using Reciprocal Rank Fusion (RRF).
+*   **Neural Re-ranking:** Prioritizes retrieved passages using a Cross-Encoder (`ms-marco-MiniLM-L-6-v2`) to maximize context precision.
+*   **Stateful Agentic Guardrails (LangGraph):** Orchestrates a multi-turn evaluation loop that programmatically cross-references generated answers against source literature, retrying automatically if a citation cannot be strictly verified.
+*   **Explainable UI:** Displays medical responses with inline interactive citations mapped directly to source evidence chunks.
+
+## Tech Stack
+*   **Backend:** FastAPI, Python 3.11, LangChain, LangGraph
+*   **Frontend:** React, TypeScript, TailwindCSS, Vite
+*   **Database:** Chroma Vector Store
+*   **LLMs:** Google Cloud Vertex AI (Gemini 2.5 Pro & 3.5 Flash)
+
 
 ## Architecture
 
