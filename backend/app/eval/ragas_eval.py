@@ -154,11 +154,17 @@ def run_ragas_evaluation(examples: Sequence[EvalExample]) -> EvalReport:
             "ground_truth": [example.ground_truth for example in examples],
         }
     )
+    from ragas.run_config import RunConfig
+    import math
+
+    run_config = RunConfig(max_workers=10, timeout=120, max_retries=10)
+
     result = evaluate(
         dataset,
         metrics=[faithfulness, answer_relevancy, context_precision, context_recall],
         llm=evaluator_llm,
         embeddings=evaluator_embeddings,
+        run_config=run_config,
     )
     # Compute aggregate mean for each metric from row-by-row scores
     metrics = {}
@@ -166,18 +172,34 @@ def run_ragas_evaluation(examples: Sequence[EvalExample]) -> EvalReport:
     if scores_list:
         keys = scores_list[0].keys()
         for key in keys:
-            vals = [row[key] for row in scores_list if row[key] is not None]
+            vals = []
+            for row in scores_list:
+                val = row[key]
+                if val is not None and not math.isnan(val):
+                    vals.append(val)
             if vals:
                 metrics[key] = float(sum(vals) / len(vals))
-    details = [
-        {
-            "question": example.question,
-            "answer": example.answer,
-            "ground_truth": example.ground_truth,
-            "context_count": len(example.contexts),
-        }
-        for example in examples
-    ]
+            else:
+                metrics[key] = 0.0
+
+    details = []
+    for idx, example in enumerate(examples):
+        row_scores = {}
+        if scores_list and idx < len(scores_list):
+            for k, v in scores_list[idx].items():
+                if v is not None and not math.isnan(v):
+                    row_scores[k] = float(v)
+                else:
+                    row_scores[k] = None
+        details.append(
+            {
+                "question": example.question,
+                "answer": example.answer,
+                "ground_truth": example.ground_truth,
+                "context_count": len(example.contexts),
+                "scores": row_scores,
+            }
+        )
     return EvalReport(
         sample_count=len(examples),
         metrics=metrics,

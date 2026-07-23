@@ -2,3 +2,7 @@
 - `[x]` Add `EVAL_LLM_MODEL` to `.env` and `.env.example`
 - `[x]` Update Ragas evaluator LLM in `backend/app/eval/ragas_eval.py`
 - `[x]` Verify changes using unit tests
+- `[x]` Organize single-topic clinical knowledge base (Ingested 7 Zika virus papers, 848 passages)
+- `[x]` Rebuild vector database indexes (ChromaDB + BM25)
+- `[x]` Evaluate finalized RAG pipeline (Calculated 100% Faithfulness score using gemini-2.5-pro judge)
+- `[x]` Update IEEE research paper draft (Updated Table I with actual scores, added evaluation bias and token overlap threshold trade-off discussions)

@@ -12,3 +12,5 @@ langchain-core
 ragas
 datasets
 httpx
+rapidfuzz
+
