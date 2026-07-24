@@ -37,3 +37,6 @@ frontend/.env.*
 
 # Firebase cache
 .firebase/
+
+# Submission drafts
+rp_submission/

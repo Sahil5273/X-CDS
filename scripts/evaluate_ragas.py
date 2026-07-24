@@ -43,7 +43,8 @@ def main() -> None:
     cached_preds_path = Path("data/materialized_predictions.jsonl")
     predictions = []
 
-    # Check if we should load cached predictions to avoid regenerating answers
+    # 1. Load cached predictions if they exist
+    cached_map = {}
     if cached_preds_path.exists():
         print(f"Loading cached predictions from {cached_preds_path}...")
         with cached_preds_path.open("r", encoding="utf-8") as f:
@@ -53,31 +54,45 @@ def main() -> None:
                     continue
                 record = json.loads(line)
                 from backend.app.eval.ragas_eval import EvalExample
-                predictions.append(
-                    EvalExample(
-                        question=record["question"],
-                        answer=record["answer"],
-                        contexts=record["contexts"],
-                        ground_truth=record["ground_truth"],
-                    )
+                example = EvalExample(
+                    question=record["question"],
+                    answer=record["answer"],
+                    contexts=record["contexts"],
+                    ground_truth=record["ground_truth"],
                 )
-        print(f"Loaded {len(predictions)} predictions.")
-    else:
-        examples = load_eval_dataset(args.dataset)
+                cached_map[example.question] = example
+        print(f"Loaded {len(cached_map)} cached predictions from file.")
+
+    # 2. Load the full dataset
+    examples = load_eval_dataset(args.dataset)
+
+    # 3. Identify missing examples that need to be materialized
+    missing_examples = []
+    for ex in examples:
+        if ex.question in cached_map:
+            predictions.append(cached_map[ex.question])
+        else:
+            missing_examples.append(ex)
+
+    # 4. Materialize only the missing ones
+    if missing_examples:
+        print(f"Materializing {len(missing_examples)} new predictions...")
         answer_fn = None
         if args.use_pipeline:
             service = build_default_service()
             answer_fn = lambda question: service.answer(question).to_dict()
 
-        predictions = materialize_predictions(examples, answer_fn=answer_fn)
+        new_predictions = materialize_predictions(missing_examples, answer_fn=answer_fn)
+        predictions.extend(new_predictions)
 
-        # Cache predictions for future runs
+        # Update cache file with all predictions
         print(f"Caching {len(predictions)} predictions to {cached_preds_path}...")
         cached_preds_path.parent.mkdir(parents=True, exist_ok=True)
         with cached_preds_path.open("w", encoding="utf-8") as f:
             for p in predictions:
                 f.write(json.dumps(p.to_dict(), ensure_ascii=False) + "\n")
 
+    print(f"Running Ragas evaluation on {len(predictions)} predictions...")
     report = run_ragas_evaluation(predictions)
     write_report(report, args.output)
     print(json.dumps(report.metrics, indent=2, ensure_ascii=False))
