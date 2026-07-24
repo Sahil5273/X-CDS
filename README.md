@@ -138,21 +138,40 @@ npm run dev
 
 Open http://localhost:5173. Vite proxies `/api` to the backend.
 
-### 6. Evaluate with Ragas
+### 6. Evaluate with Ragas and Baseline RAG
 
-Using pre-filled sample predictions:
+We run evaluations against the large clinical dataset using the standard Ragas framework (using Gemini 2.5 Pro as the judge and Gemini 3.5 Flash as the pipeline generator).
 
+**A. Generate the Clinical Dataset:**
+Synthesize clinical queries and ground-truth answers from the ingested BioC corpus:
 ```bash
-python -m scripts.evaluate_ragas --dataset tests/fixtures/ragas_eval_sample.jsonl
+python -m scripts.generate_clinical_dataset --count 45 --output data/my_eval_set_large.jsonl
 ```
 
-Using live pipeline predictions (requires indexes + `GOOGLE_API_KEY`):
-
+**B. Evaluate the X-CDS Pipeline (with Stateful Guardrails):**
+Run the 45-case evaluation. This script caches pipeline answers in `data/materialized_predictions.jsonl` to avoid redundant LLM calls on subsequent runs:
 ```bash
-python -m scripts.evaluate_ragas --dataset tests/fixtures/ragas_eval_sample.jsonl --use-pipeline
+python -m scripts.evaluate_ragas --dataset data/my_eval_set_large.jsonl --use-pipeline
 ```
+*Report output:* `data/ragas_report.json`
 
-Report output: `data/ragas_report.json`
+**C. Evaluate the Baseline RAG Pipeline (without Guardrail Loop):**
+Run the evaluation with the LangGraph self-correction loop bypassed (forces `max_generation_attempts=1`):
+```bash
+python -m scripts.evaluate_baseline --dataset data/my_eval_set_large.jsonl
+```
+*Report output:* `data/baseline_ragas_report.json`
+
+**D. Compile and Open the Comparison Dashboard:**
+Merge the results and open the interactive comparison interface in your browser:
+```bash
+# Compile the HTML file
+python -m scripts.build_dashboard
+
+# Open in default browser
+# Windows (PowerShell):
+Start-Process "docs/evaluation_dashboard.html"
+```
 
 ## End-to-end smoke test
 
