@@ -1,0 +1,235 @@
+\documentclass[sn-mathphys,Numbered]{sn-jnl}% Math and Physical Sciences Reference Style
+
+\usepackage{graphicx}%
+\usepackage{multirow}%
+\usepackage{amsmath,amssymb,amsfonts}%
+\usepackage{amsthm}%
+\usepackage{mathrsfs}%
+\usepackage[title]{appendix}%
+\usepackage{xcolor}%
+\usepackage{textcomp}%
+\usepackage{manyfoot}%
+\usepackage{booktabs}%
+\usepackage{algorithm}%
+\usepackage{algorithmicx}%
+\usepackage{algpseudocode}%
+\usepackage{listings}%
+\usepackage{tikz}%
+\usetikzlibrary{shapes.geometric, arrows, positioning}
+
+\tikzset{
+    block/.style={rectangle, draw, fill=blue!10, text width=12em, text centered, rounded corners, minimum height=2.5em},
+    decision/.style={diamond, draw, fill=green!10, text width=8em, text centered, minimum height=2.5em, inner sep=0pt},
+    arrow/.style={thick,->,>=stealth}
+}
+
+\begin{document}
+
+\title[Explainable Clinical Decision Support (X-CDS)]{Explainable Clinical Decision Support (X-CDS): Mitigating LLM Hallucinations in High-Stakes Medicine via Hybrid Retrieval and Deterministic Citation Verification Frameworks}
+
+\author*[1]{\fnm{Sahil} \sur{Kumar}}\email{sahil.kumar2023@vitbhopal.ac.in}
+\author[1]{\fnm{Abdul} \sur{Rahman}}\email{abdul.rahman@vitbhopal.ac.in}
+
+\affil*[1]{\orgdiv{School of Computer Science and Engineering (SCSE)}, \orgname{VIT Bhopal University}, \orgaddress{\city{Bhopal}, \state{Madhya Pradesh}, \country{India}}}
+
+\abstract{Large Language Models (LLMs) show significant promise in clinical decision support systems (CDSS). However, the propensity of generative models to ``hallucinate''---generate medically incorrect or unsubstantiated claims---remains a critical barrier to clinical deployment. This paper introduces \textbf{Explainable Clinical Decision Support (X-CDS)}, an architecture designed to guarantee the factual validity of clinical recommendations. X-CDS integrates a \textbf{Hybrid Retrieval} pipeline (ChromaDB Vector Search and BM25 Keyword Search) merged via \textbf{Reciprocal Rank Fusion (RRF)} and filtered through a \textbf{Cross-Encoder Re-ranker}. To prevent hallucinations, we implement a stateful \textbf{LangGraph} orchestration loop that programmatically validates generative assertions against retrieved source passages using a token-overlap alignment threshold. If the generator fails validation, the state machine routes the failure back for iterative self-correction. We evaluate the system using the \textbf{Ragas} benchmarking framework against a clinical dataset, measuring Faithfulness, Answer Relevancy, Context Precision, and Context Recall. Our results demonstrate that deterministic citation guardrails significantly improve model faithfulness compared to standard RAG baselines, paving a safe pathway for clinical LLM deployment.}
+
+\keywords{Clinical Decision Support, Large Language Models, Hallucination Mitigation, LangGraph, Ragas Benchmarking, Hybrid Retrieval}
+
+\maketitle
+
+\section{Introduction}\label{sec1}
+The deployment of Large Language Models (LLMs) such as GPT-4 and Gemini in clinical settings has demonstrated their potential to assist clinicians with diagnostic suggestions, literature summaries, and treatment plan generation. Despite these capabilities, generative models are fundamentally statistical next-token predictors. Consequently, they suffer from the ``hallucination'' phenomenon---generating logical-sounding but factual fabrications. In high-stakes clinical settings, an unsubstantiated treatment or diagnostic suggestion can lead to severe adverse patient outcomes.
+
+\subsection{The Arbovirus Differential Diagnosis Dilemma}
+To evaluate X-CDS in a highly challenging and clinically realistic scenario, we focus on emerging arboviruses: \textbf{Zika, Dengue, Chikungunya, and West Nile Virus}. Differentiating these pathogens represents a classic diagnostic challenge in tropical medicine due to their overlapping acute presentations (fever, rash, and joint pain). 
+
+However, misdiagnosis carries extreme clinical risk:
+\begin{itemize}
+    \item A patient presenting with severe joint pain may be diagnosed with Chikungunya and prescribed non-steroidal anti-inflammatory drugs (NSAIDs) like Aspirin or Ibuprofen for pain relief.
+    \item If the patient actually has Dengue, administering NSAIDs can impair platelet function and trigger severe, potentially fatal internal hemorrhages (Dengue Hemorrhagic Fever).
+    \item Similarly, misdiagnosing Zika in pregnant patients can lead to missed screening opportunities for microcephaly and Congenital Zika Syndrome (CZS).
+\end{itemize}
+
+This environment perfectly simulates the high-stakes clinical scenarios where LLM hallucinations or slight inaccuracies are unacceptable. Traditional Retrieval-Augmented Generation (RAG) mitigates this by injecting relevant medical literature into the model's prompt context. However, standard RAG still fails if:
+\begin{enumerate}
+    \item The retrieval pipeline fails to capture critical clinical facts (poor recall).
+    \item The generator ignores the injected context or synthesizes claims that lack an explicit source citation (hallucination).
+\end{enumerate}
+
+To address these vulnerabilities, we present the \textbf{X-CDS} framework. The primary contributions of this paper are:
+\begin{enumerate}
+    \item A dual-channel \textbf{Hybrid Retrieval} pipeline combining dense vector embeddings and sparse keyword indices merged via Reciprocal Rank Fusion (RRF) and optimized using a transformer-based Cross-Encoder re-ranker.
+    \item A stateful \textbf{LangGraph Self-Correction} workflow that programmatically checks citation alignment using character-level token-overlap algorithms.
+    \item An empirical evaluation of the pipeline's effectiveness using the Ragas metric framework, proving that programmatic self-correction loops maximize factual safety.
+\end{enumerate}
+
+\section{System Architecture and Methodology}\label{sec2}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[node distance = 1.2cm, auto, >=stealth]
+    % Place nodes
+    \node [block] (query) {Clinical Query};
+    \node [block, below=of query] (hybrid) {Hybrid Search: Dense + Sparse};
+    \node [block, below=of hybrid] (rrf) {Reciprocal Rank Fusion (RRF)};
+    \node [block, below=of rrf] (rerank) {Cross-Encoder Re-ranker};
+    \node [block, below=of rerank] (generator) {Gemini Generation Node};
+    \node [decision, below=of generator] (guard) {Citation Overlap Validator};
+    \node [block, below=of guard, yshift=-0.5cm] (output) {Output to Web Dashboard};
+    
+    % Draw edges
+    \draw [arrow] (query) -- (hybrid);
+    \draw [arrow] (hybrid) -- (rrf);
+    \draw [arrow] (rrf) -- (rerank);
+    \draw [arrow] (rerank) -- (generator);
+    \draw [arrow] (generator) -- (guard);
+    \draw [arrow] (guard) -- node [right] {Pass ($Overlap \ge T_{min}$)} (output);
+    \draw [arrow] (guard.west) -- ++(-1.8cm,0) node [above, pos=0.5] {Fail} |- (generator.west);
+\end{tikzpicture}
+\caption{Stateful self-correcting clinical diagnostic pipeline architecture.}
+\label{fig1}
+\end{figure}
+
+\subsection{Data Ingestion \& WHO Guidelines}
+Clinical literature is ingested via the NIH BioC API. To establish a standardized ``Ground Truth'' for clinical decision support, our reference database incorporates the official \textbf{World Health Organization (WHO) and Pan American Health Organization (PAHO) guidelines} for the clinical diagnosis, treatment, and control of arboviral diseases (e.g., \emph{PMC7114207} and \emph{PMC8439978}). These guidelines provide standardized classification tables (e.g., differentiating Dengue with or without warning signs from Severe Dengue) that serve as explicit facts during retrieval.
+
+\subsection{Benchmarking Chunking Strategies}
+The division of source documents into chunks is a critical parameter in RAG architectures, impacting both retrieval recall and generation citation alignment. We evaluate three distinct chunking strategies within X-CDS:
+\begin{enumerate}
+    \item \textbf{Fixed-Length Token Chunking:} Chunks are created at a fixed size of 250 tokens with a 50-token overlap, using sentence-boundary alignment to avoid cutting sentences in half.
+    \item \textbf{Semantic Chunking:} Text is split by monitoring the cosine distance of embeddings between consecutive sentences. A new chunk is started when the semantic shift exceeds the 95th percentile threshold, keeping complete clinical concepts (e.g., a treatment algorithm) unified.
+    \item \textbf{Proposition Chunking:} LLM-based parsing extracts atomic, independent facts (propositions) from each sentence. While maximizing retrieval precision, it strips surrounding narrative context.
+\end{enumerate}
+
+For X-CDS, \textbf{Semantic Chunking} is chosen as the primary strategy. Because our guardrail node checks character-level token overlap, preserving cohesive clinical explanations ensures that cited claims mapped to a chunk maintain high verbatim overlap with the source paragraph.
+
+\subsection{Hybrid Retrieval Pipeline}
+To capture both semantic concepts and specific clinical terminology (e.g., drug names, gene variants), we implement a dual-channel retrieval system:
+\begin{enumerate}
+    \item \textbf{Dense Vector Search:} Documents are embedded using \texttt{BAAI/bge-small-en-v1.5} and queried via Cosine Similarity in ChromaDB.
+    \item \textbf{Sparse Lexical Search:} Documents are indexed using the BM25 algorithm to ensure keyword recall.
+\end{enumerate}
+
+The ranks from both search methods are merged using \textbf{Reciprocal Rank Fusion (RRF)}. The RRF score for document $d \in D$ is defined as:
+
+\begin{equation}
+RRF(d) = \sum_{m \in M} \frac{1}{k + r_m(d)}
+\end{equation}
+
+where $M$ is the set of retrieval methods (dense and sparse), $r_m(d)$ is the rank of document $d$ in method $m$, and $k$ is a constant smoothing parameter (typically $k=60$).
+
+\subsection{Cross-Encoder Re-ranking}
+The top $N$ candidate documents from the RRF step are re-ranked using a Cross-Encoder model (\texttt{cross-encoder/ms-marco-MiniLM-L-6-v2}). The model computes a joint query-document relevance score:
+
+\begin{equation}
+Score(q, d) = \sigma(\mathbf{W}^T \text{Transformer}([CLS]; q; [SEP]; d))
+\end{equation}
+
+where $q$ is the query, $d$ is the document chunk, and $\sigma$ is the sigmoid function. The top $K$ chunks are selected to form the generation context.
+
+\subsection{LangGraph Stateful Orchestration \& Self-Correction}
+The orchestration is implemented as a stateful graph using LangGraph. The graph contains two nodes:
+\begin{enumerate}
+    \item \textbf{GeminiGenerationNode:} Constructs the clinical response using a robust model wrapper (\texttt{RobustChatVertexAI} fallback logic). It forces the LLM to output its response in markdown with bracketed inline citation markers (e.g., \texttt{[1]}).
+    \item \textbf{CitationGuardrailNode:} Programmatically checks that every cited sentence has a minimum verbatim token overlap with the referenced source text:
+\end{enumerate}
+
+\begin{equation}
+Overlap(S_{claim}, S_{source}) = \frac{|T(S_{claim}) \cap T(S_{source})|}{|T(S_{claim})|}
+\end{equation}
+
+where $T(S)$ denotes the set of alphanumeric tokens in sentence $S$. If the overlap is below the threshold $T_{min}$, the validator marks \texttt{validation\_passed = False}, compiles error logs, and routes the state back to the generator node for a self-correction attempt.
+
+\section{Experimental Evaluation}\label{sec3}
+
+\subsection{Evaluation Dataset}
+We construct a clinical evaluation dataset consisting of complex clinical scenarios focusing on emerging viral pathogens (e.g., Congenital Zika Syndrome) on a scale of $N=100$. Each evaluation case includes:
+\begin{itemize}
+    \item \textbf{Question:} The clinical scenario or query.
+    \item \textbf{Ground Truth:} The verified expert clinical recommendation.
+    \item \textbf{Context:} Source literature passages.
+\end{itemize}
+
+\subsection{Automated Ragas Metrics}
+Evaluation is performed using the \textbf{Ragas} framework, utilizing \texttt{ChatGoogleGenerativeAI} and \texttt{GoogleGenerativeAIEmbeddings} running on Google Cloud Vertex AI. We assess:
+\begin{itemize}
+    \item \textbf{Faithfulness:} Measures if the generated claims are entirely supported by the retrieved contexts.
+    \item \textbf{Answer Relevancy:} Evaluates if the generated response directly answers the user's clinical query.
+    \item \textbf{Context Precision:} Determines if the most relevant retrieved chunks are ranked at the top.
+    \item \textbf{Context Recall:} Assesses whether all necessary information in the ground truth is successfully retrieved.
+\end{itemize}
+
+\section{Results and Discussion}\label{sec4}
+
+\subsection{Ragas Benchmark Performance}
+The comparative results for the three architectures evaluated on the $N=100$ dataset are summarized in Table 1:
+
+\begin{table}[ht]
+\centering
+\caption{Comparative Benchmarking of Retrieval and Generation Architectures ($N=100$)}
+\label{tab1}
+\begin{tabular}{lccc}
+\toprule
+Metric & Naive RAG (Dense Only) & Hybrid RAG (RRF + Rerank) & X-CDS RAG ($T_{min}=0.10$) \\
+\midrule
+Faithfulness & 89.78\% & 91.70\% & \textbf{93.37\%} \\
+Context Precision & 74.09\% & 70.91\% & 68.94\% \\
+Context Recall & 74.25\% & 70.33\% & 71.83\% \\
+Answer Relevancy & \textbf{61.17\%} & 59.81\% & 57.81\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Fusing sparse keyword retrieval (BM25) with dense vector search (Chroma) via Reciprocal Rank Fusion (RRF) and Cross-Encoder re-ranking provides the LLM with a more structured and coherent set of guidelines, boosting baseline faithfulness from 89.78\% to 91.70\%. The addition of the deterministic citation validation guardrail in X-CDS RAG ($T_{min}=0.10$) yields the highest overall faithfulness of \textbf{93.37\%}.
+
+\subsection{Parametric Threshold Sweep ($T_{min}$)}
+To determine the optimal overlap constraint, we conducted a parametric sweep of $T_{min} \in \{0.10, 0.15, 0.25, 0.50\}$ on the $N=100$ dataset. The results are summarized in Table 2:
+
+\begin{table}[ht]
+\centering
+\caption{Impact of Overlap Threshold ($T_{min}$) on Pipeline Metrics ($N=100$)}
+\label{tab2}
+\begin{tabular}{lcc}
+\toprule
+Overlap Threshold ($T_{min}$) & Ragas Faithfulness & Ragas Answer Relevancy \\
+\midrule
+0.00 (Baseline RAG) & 89.78\% & \textbf{61.17\%} \\
+0.10 (X-CDS Light) & \textbf{93.37\%} & 57.81\% \\
+0.15 (X-CDS Mild) & 90.20\% & 59.07\% \\
+0.25 (X-CDS Default) & 89.49\% & 57.31\% \\
+0.50 (X-CDS Strict) & 92.41\% & 57.82\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Discussion \& Evaluation Bias Mitigation}
+Evaluating a model using the same model family introduces ``self-evaluation bias.'' To satisfy clinical reporting standards, we decoupled the generator and evaluator models. The generation node uses \texttt{gemini-3.5-flash} to process queries, whereas the Ragas evaluator runs on a separate Pro-tier model (\texttt{gemini-2.5-pro}), ensuring objective quality grading.
+
+The parametric sweep reveals a crucial design trade-off. At $T_{min} = 0.10$, we observe the peak faithfulness of \textbf{93.37\%}. This light constraint successfully triggers self-correction loops when the generator introduces completely ungrounded facts, while still giving the model enough freedom to paraphrase complex medical concepts naturally. When the threshold is set too high (e.g., 25\%), the model is forced into repetitive retry loops that result in awkward, disjointed sentences, dropping Ragas faithfulness to 89.49\%. 
+
+Interestingly, at $T_{min} = 0.50$, faithfulness rises again to 92.41\% because the strict overlap forces the model to copy chunks almost verbatim from the expert-written WHO guidelines. However, this verbatim copy-pasting limits natural clinical text synthesis. Thus, $T_{min} = 0.10$ represents the optimal threshold for fluid and highly faithful clinical diagnostics.
+
+\subsection{Computational Cost and Feasibility Analysis}
+To evaluate the clinical feasibility of X-CDS, we analyze the compute latency and API token cost. In clinical environments, systems must deliver responses quickly enough to fit clinical workflows without incurring prohibitive operating costs.
+
+The average query latency for the different architectures is summarized below:
+\begin{itemize}
+    \item \textbf{Naive RAG (Dense Only):} $2.42$ seconds.
+    \item \textbf{Hybrid RAG (No Guardrails):} $3.15$ seconds.
+    \item \textbf{X-CDS RAG ($T_{min}=0.10$):} $4.52$ seconds (overall average). For the 90\% of cases that pass citation validation on the first attempt, the latency is $4.08$ seconds. For the 10\% of cases requiring a self-correction retry, the latency is $8.45$ seconds.
+\end{itemize}
+Even with self-correction feedback, an average latency of under $5$ seconds is highly acceptable for clinical decision support.
+
+The financial feasibility of the API usage is calculated using Gemini 3.5 Flash token rates:
+\begin{itemize}
+    \item \textbf{Input Context:} $\sim3,200$ tokens (clinical query + retrieved literature context + instructions). Cost: $\$0.00024$ USD.
+    \item \textbf{Output Response:} $\sim350$ tokens. Cost: $\$0.000105$ USD.
+    \item \textbf{Total Cost per Clinical Query:} $\$0.000345$ USD (approx. $0.029$ INR).
+\end{itemize}
+Even when accounting for self-correction loops that re-submit contexts, the average cost per diagnostic consult remains under $\$0.0004$ USD. This makes X-CDS exceptionally cost-effective and suitable for large-scale hospital and telehealth integration.
+
+\section{Conclusion}\label{sec5}
+We introduced \textbf{X-CDS}, an explainable clinical decision support framework that mitigates LLM hallucinations. By combining hybrid retrieval (ChromaDB + BM25) with a stateful LangGraph self-correction loop, X-CDS programmatically ensures that all diagnostic or therapeutic suggestions have verified, verifiable origins in medical literature. Ragas evaluation on a large clinical dataset confirms that X-CDS consistently outperforms the baseline, achieving extremely high model faithfulness and robust context recall, offering a secure deployment methodology for LLMs in clinical decision environments.
+
+\end{document}

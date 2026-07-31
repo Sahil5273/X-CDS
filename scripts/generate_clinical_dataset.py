@@ -62,7 +62,7 @@ def generate_batch(
     )
 
     prompt = f"""You are an expert clinical research evaluator.
-Given the following medical literature passages regarding the Zika virus, generate exactly {num_questions} diverse, high-quality clinical queries and their corresponding expert ground-truth answers.
+Given the following medical literature passages regarding arboviruses and tropical infectious diseases, generate exactly {num_questions} diverse, high-quality clinical queries and their corresponding expert ground-truth answers.
 
 Each generated case must:
 1. Represent a realistic clinical scenario (e.g., patient presenting with symptoms, diagnosis decisions, pregnancy guidelines, transplacental transmission, congenital complications, or neurological issues).

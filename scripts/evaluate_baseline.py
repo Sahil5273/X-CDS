@@ -26,7 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("data/baseline_ragas_report.json"),
+        default=Path("data/naive_ragas_report.json"),
         help="Destination JSON report path.",
     )
     return parser
@@ -35,7 +35,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     args = build_parser().parse_args()
 
-    cached_preds_path = Path("data/baseline_materialized_predictions.jsonl")
+    cached_preds_path = Path("data/naive_materialized_predictions.jsonl")
     predictions = []
 
     # 1. Load cached predictions if they exist
@@ -78,24 +78,38 @@ def main() -> None:
         original_run = service.generator.run
         service.generator.run = lambda q, c: original_run(q, c, max_generation_attempts=1)
 
+        # Monkeypatch retriever to act as Naive RAG (Chroma-only, no BM25, no RRF, no re-ranking)
+        class NaiveRAGRetriever:
+            def __init__(self, dense_store):
+                self.dense_store = dense_store
+
+            def search(self, query: str):
+                dense_hits = self.dense_store.similarity_search(query, top_k=5)
+                class RetrievalResult:
+                    def __init__(self, hits):
+                        self.reranked_hits = hits
+                return RetrievalResult(dense_hits)
+
+        service.retriever = NaiveRAGRetriever(service.retriever.hybrid_retriever.dense_store)
+
         answer_fn = lambda question: service.answer(question).to_dict()
         new_predictions = materialize_predictions(missing_examples, answer_fn=answer_fn)
         predictions.extend(new_predictions)
 
         # Update cache file with all predictions
-        print(f"Caching {len(predictions)} baseline predictions to {cached_preds_path}...")
+        print(f"Caching {len(predictions)} Naive RAG predictions to {cached_preds_path}...")
         cached_preds_path.parent.mkdir(parents=True, exist_ok=True)
         with cached_preds_path.open("w", encoding="utf-8") as f:
             for p in predictions:
                 f.write(json.dumps(p.to_dict(), ensure_ascii=False) + "\n")
 
-    print(f"Running Ragas evaluation on {len(predictions)} baseline predictions...")
+    print(f"Running Ragas evaluation on {len(predictions)} Naive RAG predictions...")
     report = run_ragas_evaluation(predictions)
     write_report(report, args.output)
 
-    print("\n--- Baseline RAG ($N=45$) Metrics ---")
+    print("\n--- Naive RAG ($N=100$) Metrics ---")
     print(json.dumps(report.metrics, indent=2, ensure_ascii=False))
-    print(f"Wrote baseline Ragas report to {args.output}")
+    print(f"Wrote Naive Ragas report to {args.output}")
 
 
 if __name__ == "__main__":

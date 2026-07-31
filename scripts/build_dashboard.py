@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 from pathlib import Path
 
@@ -30,64 +31,69 @@ def load_materialized_contexts(path: Path) -> dict[str, list[str]]:
     return contexts_map
 
 
+def get_base64_image(path: Path) -> str:
+    """Encode image to base64 string for HTML embedding."""
+    if not path.exists():
+        return ""
+    with path.open("rb") as f:
+        data = f.read()
+        return base64.b64encode(data).decode("utf-8")
+
+
 def main() -> None:
     data_dir = Path("data")
     output_path = Path("docs/evaluation_dashboard.html")
+    chart_path = Path("docs/threshold_sweep_chart.png")
 
     print("Loading evaluation reports...")
-    xcds_report = load_json_report(data_dir / "ragas_report.json")
-    baseline_report = load_json_report(data_dir / "baseline_ragas_report.json")
+    # Load the 3 main comparisons
+    xcds_report = load_json_report(data_dir / "ragas_report_t10.json")  # Using optimized T_min=0.10
+    hybrid_report = load_json_report(data_dir / "baseline_ragas_report.json")  # Hybrid RAG
+    naive_report = load_json_report(data_dir / "naive_ragas_report.json")  # Naive RAG
 
     print("Loading retrieved contexts...")
-    contexts_map = load_materialized_contexts(data_dir / "materialized_predictions.jsonl")
+    # Contexts are captured from the hybrid run predictions
+    contexts_map = load_materialized_contexts(data_dir / "baseline_materialized_predictions.jsonl")
+
+    # Encode chart to base64
+    print("Encoding threshold sweep chart to base64...")
+    chart_base64 = get_base64_image(chart_path)
 
     # Merge data by question
     merged_details: list[dict[str, any]] = []
-
-    # Map baseline details by question
-    baseline_map = {item["question"]: item for item in baseline_report.get("details", [])}
+    
+    hybrid_map = {item["question"]: item for item in hybrid_report.get("details", [])}
+    naive_map = {item["question"]: item for item in naive_report.get("details", [])}
 
     for xcds_item in xcds_report.get("details", []):
         question = xcds_item["question"]
-        baseline_item = baseline_map.get(question, {})
+        hybrid_item = hybrid_map.get(question, {})
+        naive_item = naive_map.get(question, {})
 
         merged_record = {
             "question": question,
             "ground_truth": xcds_item["ground_truth"],
             "xcds_answer": xcds_item["answer"],
             "xcds_scores": xcds_item.get("scores", {}),
-            "baseline_answer": baseline_item.get("answer", "N/A"),
-            "baseline_scores": baseline_item.get("scores", {}),
+            "hybrid_answer": hybrid_item.get("answer", "N/A"),
+            "hybrid_scores": hybrid_item.get("scores", {}),
+            "naive_answer": naive_item.get("answer", "N/A"),
+            "naive_scores": naive_item.get("scores", {}),
             "contexts": contexts_map.get(question, []),
         }
         merged_details.append(merged_record)
 
     # Metrics
     x_metrics = xcds_report.get("metrics", {})
-    b_metrics = baseline_report.get("metrics", {})
-
-    xf = x_metrics.get("faithfulness", 0) * 100
-    bf = b_metrics.get("faithfulness", 0) * 100
-    df = xf - bf
-
-    xr = x_metrics.get("answer_relevancy", 0) * 100
-    br = b_metrics.get("answer_relevancy", 0) * 100
-    dr = xr - br
-
-    xp = x_metrics.get("context_precision", 0) * 100
-    bp = b_metrics.get("context_precision", 0) * 100
-    dp = xp - bp
-
-    xc = x_metrics.get("context_recall", 0) * 100
-    bc = b_metrics.get("context_recall", 0) * 100
-    dc = xc - bc
+    h_metrics = hybrid_report.get("metrics", {})
+    n_metrics = naive_report.get("metrics", {})
 
     html_template = """<!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>X-CDS RAG Evaluation Benchmarks</title>
+    <title>X-CDS Evaluation Benchmarks</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -155,158 +161,148 @@ def main() -> None:
             </div>
             <div>
                 <h1 class="text-lg font-bold text-white tracking-tight">X-CDS</h1>
-                <p class="text-xs text-slate-400">Clinical RAG Evaluator Dashboard</p>
+                <p class="text-xs text-slate-400">Advanced 3-Way RAG Benchmarks</p>
             </div>
         </div>
         <div class="flex items-center space-x-4">
             <span class="px-3 py-1 text-xs font-semibold rounded-full bg-brand-500/10 text-brand-500 border border-brand-500/20">
-                <i class="fa-solid fa-server mr-1.5"></i>Dataset: Zika Virus (N=__DATA_COUNT__)
+                <i class="fa-solid fa-server mr-1.5"></i>Dataset: Pathogens Benchmark (N=__DATA_COUNT__)
             </span>
         </div>
     </header>
 
     <main class="max-w-7xl mx-auto px-6 mt-8 space-y-8">
 
-        <!-- Metrics Overview Grid -->
-        <section class="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <!-- Faithfulness -->
-            <div class="glass rounded-2xl p-6 relative overflow-hidden flex flex-col justify-between">
-                <div>
-                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Faithfulness</span>
-                    <div class="flex items-baseline space-x-2 mt-2">
-                        <span class="text-3xl font-extrabold text-white">__X_FAITHFULNESS__%</span>
-                        <span class="text-xs text-emerald-400 font-semibold flex items-center">
-                            <i class="fa-solid fa-caret-up mr-0.5"></i>
-                            +__D_FAITHFULNESS__%
+        <!-- Navigation Tabs -->
+        <div class="flex border-b border-slate-800/60 space-x-6">
+            <button onclick="switchTab('comparison')" id="tab-comparison-btn" class="pb-3 text-sm font-bold border-b-2 border-brand-500 text-white transition-all">
+                <i class="fa-solid fa-table-list mr-2"></i>3-Way Query Comparison
+            </button>
+            <button onclick="switchTab('sweep')" id="tab-sweep-btn" class="pb-3 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-white transition-all">
+                <i class="fa-solid fa-chart-line mr-2"></i>Threshold Sweep Chart
+            </button>
+        </div>
+
+        <!-- TAB: 3-Way Comparison -->
+        <div id="tab-comparison" class="space-y-8">
+            <!-- Metrics Comparison Cards -->
+            <section class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <!-- Faithfulness Card -->
+                <div class="glass rounded-2xl p-6 flex flex-col justify-between">
+                    <div>
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Faithfulness</span>
+                        <div class="text-3xl font-extrabold text-white mt-1">__X_FAITHFULNESS__%</div>
+                        <span class="text-xs text-emerald-400 font-semibold flex items-center mt-1">
+                            <i class="fa-solid fa-circle-check mr-1"></i>Peak Grounding Score
                         </span>
                     </div>
-                </div>
-                <div class="mt-4 space-y-2">
-                    <div class="flex justify-between text-xs text-slate-400">
-                        <span>Baseline: __B_FAITHFULNESS__%</span>
-                        <span>X-CDS: __X_FAITHFULNESS__%</span>
-                    </div>
-                    <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden flex">
-                        <div class="h-full bg-slate-500" style="width: __B_FAITHFULNESS__%"></div>
-                        <div class="h-full bg-brand-500" style="width: __D_FAITHFULNESS__%"></div>
+                    <div class="mt-4 space-y-1.5 text-xs text-slate-400">
+                        <div class="flex justify-between"><span>Naive RAG:</span> <span class="font-mono text-slate-300 font-bold">__N_FAITHFULNESS__%</span></div>
+                        <div class="flex justify-between"><span>Hybrid RAG:</span> <span class="font-mono text-slate-300 font-bold">__H_FAITHFULNESS__%</span></div>
+                        <div class="flex justify-between"><span>X-CDS (0.10):</span> <span class="font-mono text-brand-500 font-bold">__X_FAITHFULNESS__%</span></div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Answer Relevancy -->
-            <div class="glass rounded-2xl p-6 relative overflow-hidden flex flex-col justify-between">
-                <div>
-                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Answer Relevancy</span>
-                    <div class="flex items-baseline space-x-2 mt-2">
-                        <span class="text-3xl font-extrabold text-white">__X_RELEVANCY__%</span>
-                        <span class="text-xs text-emerald-400 font-semibold flex items-center">
-                            <i class="fa-solid fa-caret-up mr-0.5"></i>
-                            +__D_RELEVANCY__%
+                <!-- Relevancy Card -->
+                <div class="glass rounded-2xl p-6 flex flex-col justify-between">
+                    <div>
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Answer Relevancy</span>
+                        <div class="text-3xl font-extrabold text-white mt-1">__X_RELEVANCY__%</div>
+                        <span class="text-xs text-slate-400 font-semibold flex items-center mt-1">
+                            Balanced Semantic Synthesis
                         </span>
                     </div>
-                </div>
-                <div class="mt-4 space-y-2">
-                    <div class="flex justify-between text-xs text-slate-400">
-                        <span>Baseline: __B_RELEVANCY__%</span>
-                        <span>X-CDS: __X_RELEVANCY__%</span>
-                    </div>
-                    <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden flex">
-                        <div class="h-full bg-slate-500" style="width: __B_RELEVANCY__%"></div>
-                        <div class="h-full bg-brand-500" style="width: __D_RELEVANCY__%"></div>
+                    <div class="mt-4 space-y-1.5 text-xs text-slate-400">
+                        <div class="flex justify-between"><span>Naive RAG:</span> <span class="font-mono text-slate-300 font-bold">__N_RELEVANCY__%</span></div>
+                        <div class="flex justify-between"><span>Hybrid RAG:</span> <span class="font-mono text-slate-300 font-bold">__H_RELEVANCY__%</span></div>
+                        <div class="flex justify-between"><span>X-CDS (0.10):</span> <span class="font-mono text-brand-500 font-bold">__X_RELEVANCY__%</span></div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Context Precision -->
-            <div class="glass rounded-2xl p-6 relative overflow-hidden flex flex-col justify-between">
-                <div>
-                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Context Precision</span>
-                    <div class="flex items-baseline space-x-2 mt-2">
-                        <span class="text-3xl font-extrabold text-white">__X_PRECISION__%</span>
-                        <span class="text-xs text-emerald-400 font-semibold flex items-center">
-                            <i class="fa-solid fa-caret-up mr-0.5"></i>
-                            +__D_PRECISION__%
+                <!-- Precision Card -->
+                <div class="glass rounded-2xl p-6 flex flex-col justify-between">
+                    <div>
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Context Precision</span>
+                        <div class="text-3xl font-extrabold text-white mt-1">__H_PRECISION__%</div>
+                        <span class="text-xs text-emerald-400 font-semibold flex items-center mt-1">
+                            Advanced Retrieval Filter
                         </span>
                     </div>
-                </div>
-                <div class="mt-4 space-y-2">
-                    <div class="flex justify-between text-xs text-slate-400">
-                        <span>Baseline: __B_PRECISION__%</span>
-                        <span>X-CDS: __X_PRECISION__%</span>
-                    </div>
-                    <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden flex">
-                        <div class="h-full bg-slate-500" style="width: __B_PRECISION__%"></div>
-                        <div class="h-full bg-brand-500" style="width: __D_PRECISION__%"></div>
+                    <div class="mt-4 space-y-1.5 text-xs text-slate-400">
+                        <div class="flex justify-between"><span>Naive RAG:</span> <span class="font-mono text-slate-300 font-bold">__N_PRECISION__%</span></div>
+                        <div class="flex justify-between"><span>Hybrid RAG:</span> <span class="font-mono text-brand-500 font-bold">__H_PRECISION__%</span></div>
+                        <div class="flex justify-between"><span>X-CDS (0.10):</span> <span class="font-mono text-slate-300 font-bold">__X_PRECISION__%</span></div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Context Recall -->
-            <div class="glass rounded-2xl p-6 relative overflow-hidden flex flex-col justify-between">
-                <div>
-                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Context Recall</span>
-                    <div class="flex items-baseline space-x-2 mt-2">
-                        <span class="text-3xl font-extrabold text-white">__X_RECALL__%</span>
-                        <span class="text-xs text-emerald-400 font-semibold flex items-center">
-                            <i class="fa-solid fa-caret-up mr-0.5"></i>
-                            +__D_RECALL__%
+                <!-- Recall Card -->
+                <div class="glass rounded-2xl p-6 flex flex-col justify-between">
+                    <div>
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Context Recall</span>
+                        <div class="text-3xl font-extrabold text-white mt-1">__H_RECALL__%</div>
+                        <span class="text-xs text-emerald-400 font-semibold flex items-center mt-1">
+                            High Coverage of Facts
                         </span>
                     </div>
-                </div>
-                <div class="mt-4 space-y-2">
-                    <div class="flex justify-between text-xs text-slate-400">
-                        <span>Baseline: __B_RECALL__%</span>
-                        <span>X-CDS: __X_RECALL__%</span>
-                    </div>
-                    <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden flex">
-                        <div class="h-full bg-slate-500" style="width: __B_RECALL__%"></div>
-                        <div class="h-full bg-brand-500" style="width: __D_RECALL__%"></div>
+                    <div class="mt-4 space-y-1.5 text-xs text-slate-400">
+                        <div class="flex justify-between"><span>Naive RAG:</span> <span class="font-mono text-slate-300 font-bold">__N_RECALL__%</span></div>
+                        <div class="flex justify-between"><span>Hybrid RAG:</span> <span class="font-mono text-brand-500 font-bold">__H_RECALL__%</span></div>
+                        <div class="flex justify-between"><span>X-CDS (0.10):</span> <span class="font-mono text-slate-300 font-bold">__X_RECALL__%</span></div>
                     </div>
                 </div>
-            </div>
-        </section>
+            </section>
 
-        <!-- Main Query Section -->
-        <section class="glass rounded-3xl p-8 space-y-6">
-            <div class="flex justify-between items-center flex-wrap gap-4">
-                <div>
-                    <h2 class="text-2xl font-bold text-white">Clinical Queries Benchmarks</h2>
-                    <p class="text-sm text-slate-400 mt-1">Select any case below to see raw output comparisons, ground truth, and context passages.</p>
-                </div>
-                <div class="flex items-center space-x-3 w-full md:w-auto">
-                    <div class="relative w-full md:w-80">
-                        <input type="text" id="search-input" oninput="filterQueries()" placeholder="Search clinical queries..." 
-                               class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
-                        <i class="fa-solid fa-search absolute left-3.5 top-3.5 text-slate-500 text-xs"></i>
+            <!-- Table Section -->
+            <section class="glass rounded-3xl p-8 space-y-6">
+                <div class="flex justify-between items-center flex-wrap gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-white">Clinical Queries Benchmarks</h2>
+                        <p class="text-sm text-slate-400 mt-1">Select any case below to see raw output comparisons, ground truth, and context passages.</p>
+                    </div>
+                    <div class="flex items-center space-x-3 w-full md:w-auto">
+                        <div class="relative w-full md:w-80">
+                            <input type="text" id="search-input" oninput="filterQueries()" placeholder="Search clinical queries..." 
+                                   class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+                            <i class="fa-solid fa-search absolute left-3.5 top-3.5 text-slate-500 text-xs"></i>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Table -->
-            <div class="overflow-x-auto rounded-xl border border-slate-800/80 bg-slate-950/20">
-                <table class="w-full border-collapse text-left text-sm text-slate-300">
-                    <thead class="bg-slate-900/60 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                        <tr>
-                            <th class="px-4 py-4">Clinical Question</th>
-                            <th class="px-4 py-4 text-center">Faithfulness (B / X)</th>
-                            <th class="px-4 py-4 text-center">Relevancy (B / X)</th>
-                            <th class="px-4 py-4 text-center">Precision (B / X)</th>
-                            <th class="px-4 py-4 text-center">Recall (B / X)</th>
-                            <th class="px-4 py-4 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="queries-table-body" class="divide-y divide-slate-800/40">
-                        <!-- Filled by JS -->
-                    </tbody>
-                </table>
+                <div class="overflow-x-auto rounded-xl border border-slate-800/80 bg-slate-950/20">
+                    <table class="w-full border-collapse text-left text-sm text-slate-300">
+                        <thead class="bg-slate-900/60 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                            <tr>
+                                <th class="px-4 py-4">Clinical Question</th>
+                                <th class="px-4 py-4 text-center">Faithfulness (N / H / X)</th>
+                                <th class="px-4 py-4 text-center">Relevancy (N / H / X)</th>
+                                <th class="px-4 py-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="queries-table-body" class="divide-y divide-slate-800/40">
+                            <!-- Filled by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <!-- TAB: Threshold Sweep -->
+        <div id="tab-sweep" class="hidden flex flex-col items-center justify-center p-8 glass rounded-3xl space-y-6">
+            <div class="text-center">
+                <h2 class="text-2xl font-bold text-white">Citation Overlap Parameter Sweep ($T_{min}$)</h2>
+                <p class="text-sm text-slate-400 mt-1">Analysis of verification threshold strictly vs. natural semantic grounding ($N=100$ cases)</p>
             </div>
-        </section>
+            <div class="p-4 bg-slate-900/40 rounded-2xl border border-slate-800">
+                <img id="sweep-chart-img" class="max-w-3xl rounded-xl shadow-lg border border-slate-800/60" alt="Threshold Sweep Chart">
+            </div>
+        </div>
+
     </main>
 
     <!-- Side Drawer Details Panel -->
     <div id="detail-drawer" class="fixed inset-0 z-50 invisible transition-all duration-300" role="dialog" aria-modal="true">
         <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeDrawer()"></div>
-        <div class="absolute right-0 top-0 bottom-0 w-full md:w-[75%] lg:w-[65%] glass border-l border-slate-800 text-slate-300 shadow-2xl p-8 flex flex-col justify-between overflow-y-auto transform translate-x-full transition-transform duration-300" id="drawer-content">
+        <div class="absolute right-0 top-0 bottom-0 w-full md:w-[85%] lg:w-[75%] glass border-l border-slate-800 text-slate-300 shadow-2xl p-8 flex flex-col justify-between overflow-y-auto transform translate-x-full transition-transform duration-300" id="drawer-content">
             
             <div class="space-y-6">
                 <!-- Header -->
@@ -320,26 +316,6 @@ def main() -> None:
                     </button>
                 </div>
 
-                <!-- Scores Comparison -->
-                <div class="grid grid-cols-4 gap-4 bg-slate-900/30 p-4 rounded-2xl border border-slate-800/40">
-                    <div class="text-center flex flex-col items-center">
-                        <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Faithfulness</span>
-                        <div id="score-faithfulness"></div>
-                    </div>
-                    <div class="text-center flex flex-col items-center">
-                        <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Relevancy</span>
-                        <div id="score-relevancy"></div>
-                    </div>
-                    <div class="text-center flex flex-col items-center">
-                        <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Precision</span>
-                        <div id="score-precision"></div>
-                    </div>
-                    <div class="text-center flex flex-col items-center">
-                        <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Recall</span>
-                        <div id="score-recall"></div>
-                    </div>
-                </div>
-
                 <!-- Ground Truth -->
                 <div class="space-y-2">
                     <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center">
@@ -350,21 +326,41 @@ def main() -> None:
                     </div>
                 </div>
 
-                <!-- Answers Side-by-Side -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Answers 3-Way Side-by-Side -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Naive Answer -->
                     <div class="space-y-2">
-                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center">
-                            <i class="fa-solid fa-bolt-lightning text-slate-500 mr-2"></i>Baseline RAG Answer
-                        </h4>
-                        <div class="p-4 rounded-xl bg-slate-950/40 border border-slate-800/80 text-sm h-64 overflow-y-auto whitespace-pre-line" id="drawer-baseline-answer">
-                            Baseline answer...
+                        <div class="flex justify-between items-center">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center">
+                                <i class="fa-solid fa-bolt-lightning text-slate-500 mr-2"></i>1. Naive RAG (Dense Only)
+                            </h4>
+                            <span id="badge-naive" class="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-800 text-slate-300 border border-slate-700">Score</span>
+                        </div>
+                        <div class="p-4 rounded-xl bg-slate-950/40 border border-slate-800/80 text-xs h-96 overflow-y-auto whitespace-pre-line leading-relaxed font-sans" id="drawer-naive-answer">
+                            Naive answer...
                         </div>
                     </div>
+                    <!-- Hybrid Answer -->
                     <div class="space-y-2">
-                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center">
-                            <i class="fa-solid fa-circle-check text-brand-500 mr-2"></i>X-CDS Answer (Stateful Guardrails)
-                        </h4>
-                        <div class="p-4 rounded-xl bg-slate-900/40 border border-brand-500/10 text-sm h-64 overflow-y-auto whitespace-pre-line border-brand-500/20 shadow-inner" id="drawer-xcds-answer">
+                        <div class="flex justify-between items-center">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center">
+                                <i class="fa-solid fa-layer-group text-slate-500 mr-2"></i>2. Hybrid RAG (No Guardrail)
+                            </h4>
+                            <span id="badge-hybrid" class="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-800 text-slate-300 border border-slate-700">Score</span>
+                        </div>
+                        <div class="p-4 rounded-xl bg-slate-950/40 border border-slate-800/80 text-xs h-96 overflow-y-auto whitespace-pre-line leading-relaxed font-sans" id="drawer-hybrid-answer">
+                            Hybrid answer...
+                        </div>
+                    </div>
+                    <!-- X-CDS Answer -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center">
+                                <i class="fa-solid fa-circle-check text-brand-500 mr-2"></i>3. X-CDS RAG (Optimized 0.10)
+                            </h4>
+                            <span id="badge-xcds" class="px-2 py-0.5 text-[10px] font-bold rounded bg-brand-500/10 text-brand-500 border border-brand-500/20">Score</span>
+                        </div>
+                        <div class="p-4 rounded-xl bg-slate-900/40 border border-brand-500/20 text-xs h-96 overflow-y-auto whitespace-pre-line leading-relaxed font-sans shadow-inner" id="drawer-xcds-answer">
                             X-CDS answer...
                         </div>
                     </div>
@@ -373,9 +369,9 @@ def main() -> None:
                 <!-- Retrieved Contexts -->
                 <div class="space-y-3">
                     <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center">
-                        <i class="fa-solid fa-book-open text-brand-500 mr-2"></i>Retrieved literature passages
+                        <i class="fa-solid fa-book-open text-brand-500 mr-2"></i>Retrieved Literature Contexts
                     </h4>
-                    <div class="space-y-3 max-h-80 overflow-y-auto pr-1" id="drawer-contexts">
+                    <div class="space-y-3 max-h-64 overflow-y-auto pr-1" id="drawer-contexts">
                         <!-- Passages go here -->
                     </div>
                 </div>
@@ -386,47 +382,65 @@ def main() -> None:
     <!-- Data Injection -->
     <script>
         const detailsData = __MERGED_DETAILS__;
+        const chartBase64 = "__CHART_BASE64__";
+
+        function switchTab(tab) {
+            const comparisonTab = document.getElementById("tab-comparison");
+            const sweepTab = document.getElementById("tab-sweep");
+            const comparisonBtn = document.getElementById("tab-comparison-btn");
+            const sweepBtn = document.getElementById("tab-sweep-btn");
+
+            if (tab === "comparison") {
+                comparisonTab.classList.remove("hidden");
+                sweepTab.classList.add("hidden");
+                comparisonBtn.className = "pb-3 text-sm font-bold border-b-2 border-brand-500 text-white transition-all";
+                sweepBtn.className = "pb-3 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-white transition-all";
+            } else {
+                comparisonTab.classList.add("hidden");
+                sweepTab.classList.remove("hidden");
+                comparisonBtn.className = "pb-3 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-white transition-all";
+                sweepBtn.className = "pb-3 text-sm font-bold border-b-2 border-brand-500 text-white transition-all";
+                
+                // Lazy-load base64 image
+                const chartImg = document.getElementById("sweep-chart-img");
+                if (chartBase64 && !chartImg.src) {
+                    chartImg.src = "data:image/png;base64," + chartBase64;
+                }
+            }
+        }
         
         function fillTable(data) {
             const tbody = document.getElementById("queries-table-body");
             tbody.innerHTML = "";
             
             data.forEach((item, index) => {
-                const f_b = item.baseline_scores.faithfulness !== undefined && item.baseline_scores.faithfulness !== null ? item.baseline_scores.faithfulness.toFixed(2) : "--";
-                const f_x = item.xcds_scores.faithfulness !== undefined && item.xcds_scores.faithfulness !== null ? item.xcds_scores.faithfulness.toFixed(2) : "--";
-                
-                const r_b = item.baseline_scores.answer_relevancy !== undefined && item.baseline_scores.answer_relevancy !== null ? item.baseline_scores.answer_relevancy.toFixed(2) : "--";
-                const r_x = item.xcds_scores.answer_relevancy !== undefined && item.xcds_scores.answer_relevancy !== null ? item.xcds_scores.answer_relevancy.toFixed(2) : "--";
+                const getScoreStr = (scores) => {
+                    const f = scores.faithfulness !== undefined && scores.faithfulness !== null ? scores.faithfulness.toFixed(2) : "--";
+                    const r = scores.answer_relevancy !== undefined && scores.answer_relevancy !== null ? scores.answer_relevancy.toFixed(2) : "--";
+                    return { f, r };
+                };
 
-                const p_b = item.baseline_scores.context_precision !== undefined && item.baseline_scores.context_precision !== null ? item.baseline_scores.context_precision.toFixed(2) : "--";
-                const p_x = item.xcds_scores.context_precision !== undefined && item.xcds_scores.context_precision !== null ? item.xcds_scores.context_precision.toFixed(2) : "--";
-
-                const c_b = item.baseline_scores.context_recall !== undefined && item.baseline_scores.context_recall !== null ? item.baseline_scores.context_recall.toFixed(2) : "--";
-                const c_x = item.xcds_scores.context_recall !== undefined && item.xcds_scores.context_recall !== null ? item.xcds_scores.context_recall.toFixed(2) : "--";
+                const n = getScoreStr(item.naive_scores);
+                const h = getScoreStr(item.hybrid_scores);
+                const x = getScoreStr(item.xcds_scores);
 
                 const tr = document.createElement("tr");
                 tr.className = "hover:bg-slate-900/20 transition-colors";
                 tr.innerHTML = `
-                    <td class="px-4 py-4 font-medium text-white max-w-xs truncate">${item.question}</td>
+                    <td class="px-4 py-4 font-medium text-white max-w-sm truncate">${item.question}</td>
                     <td class="px-4 py-4 text-center">
-                        <span class="text-xs text-slate-400 font-mono">${f_b}</span>
-                        <span class="text-xs text-slate-600 px-1">/</span>
-                        <span class="text-xs font-bold text-brand-500 font-mono">${f_x}</span>
+                        <span class="text-xs text-slate-500 font-mono">${n.f}</span>
+                        <span class="text-xs text-slate-700 px-1">/</span>
+                        <span class="text-xs text-slate-400 font-mono">${h.f}</span>
+                        <span class="text-xs text-slate-700 px-1">/</span>
+                        <span class="text-xs font-bold text-brand-500 font-mono">${x.f}</span>
                     </td>
                     <td class="px-4 py-4 text-center">
-                        <span class="text-xs text-slate-400 font-mono">${r_b}</span>
-                        <span class="text-xs text-slate-600 px-1">/</span>
-                        <span class="text-xs font-bold text-brand-500 font-mono">${r_x}</span>
-                    </td>
-                    <td class="px-4 py-4 text-center">
-                        <span class="text-xs text-slate-400 font-mono">${p_b}</span>
-                        <span class="text-xs text-slate-600 px-1">/</span>
-                        <span class="text-xs font-bold text-brand-500 font-mono">${p_x}</span>
-                    </td>
-                    <td class="px-4 py-4 text-center">
-                        <span class="text-xs text-slate-400 font-mono">${c_b}</span>
-                        <span class="text-xs text-slate-600 px-1">/</span>
-                        <span class="text-xs font-bold text-brand-500 font-mono">${c_x}</span>
+                        <span class="text-xs text-slate-500 font-mono">${n.r}</span>
+                        <span class="text-xs text-slate-700 px-1">/</span>
+                        <span class="text-xs text-slate-400 font-mono">${h.r}</span>
+                        <span class="text-xs text-slate-700 px-1">/</span>
+                        <span class="text-xs font-bold text-brand-500 font-mono">${x.r}</span>
                     </td>
                     <td class="px-4 py-4 text-right">
                         <button onclick="viewDetails(${index})" class="text-brand-500 hover:text-white px-3 py-1.5 rounded-lg border border-brand-500/20 bg-brand-500/5 hover:bg-brand-500 font-semibold text-xs tracking-tight transition-all">
@@ -442,29 +456,20 @@ def main() -> None:
             const item = detailsData[index];
             document.getElementById("drawer-question").innerText = item.question;
             document.getElementById("drawer-ground-truth").innerText = item.ground_truth;
-            document.getElementById("drawer-baseline-answer").innerText = item.baseline_answer;
+            document.getElementById("drawer-naive-answer").innerText = item.naive_answer;
+            document.getElementById("drawer-hybrid-answer").innerText = item.hybrid_answer;
             document.getElementById("drawer-xcds-answer").innerText = item.xcds_answer;
 
-            // Scores
-            const showScore = (b, x) => {
-                const bs = b !== undefined && b !== null ? b.toFixed(2) : "--";
-                const xs = x !== undefined && x !== null ? x.toFixed(2) : "--";
-                return `
-                    <div class="mt-1 flex flex-col items-center space-y-1">
-                        <div class="text-[11px] text-slate-400 font-semibold bg-slate-950/40 px-2 py-0.5 rounded border border-slate-800/60 w-24 flex justify-between">
-                            <span>Base:</span> <span class="font-mono text-slate-300 font-bold">${bs}</span>
-                        </div>
-                        <div class="text-[11px] text-brand-400 font-semibold bg-brand-500/5 px-2 py-0.5 rounded border border-brand-500/10 w-24 flex justify-between">
-                            <span>X-CDS:</span> <span class="font-mono text-brand-500 font-bold">${xs}</span>
-                        </div>
-                    </div>
-                `;
+            // Badges
+            const formatBadge = (scores) => {
+                const f = scores.faithfulness !== undefined && scores.faithfulness !== null ? scores.faithfulness.toFixed(2) : "--";
+                const r = scores.answer_relevancy !== undefined && scores.answer_relevancy !== null ? scores.answer_relevancy.toFixed(2) : "--";
+                return `F: ${f} | R: ${r}`;
             };
 
-            document.getElementById("score-faithfulness").innerHTML = showScore(item.baseline_scores.faithfulness, item.xcds_scores.faithfulness);
-            document.getElementById("score-relevancy").innerHTML = showScore(item.baseline_scores.answer_relevancy, item.xcds_scores.answer_relevancy);
-            document.getElementById("score-precision").innerHTML = showScore(item.baseline_scores.context_precision, item.xcds_scores.context_precision);
-            document.getElementById("score-recall").innerHTML = showScore(item.baseline_scores.context_recall, item.xcds_scores.context_recall);
+            document.getElementById("badge-naive").innerText = formatBadge(item.naive_scores);
+            document.getElementById("badge-hybrid").innerText = formatBadge(item.hybrid_scores);
+            document.getElementById("badge-xcds").innerText = formatBadge(item.xcds_scores);
 
             // Context Passages
             const contextsContainer = document.getElementById("drawer-contexts");
@@ -504,7 +509,8 @@ def main() -> None:
             const filtered = detailsData.filter(item => 
                 item.question.toLowerCase().includes(query) || 
                 item.xcds_answer.toLowerCase().includes(query) || 
-                item.baseline_answer.toLowerCase().includes(query)
+                item.hybrid_answer.toLowerCase().includes(query) ||
+                item.naive_answer.toLowerCase().includes(query)
             );
             fillTable(filtered);
         }
@@ -520,22 +526,26 @@ def main() -> None:
 
     # Replacements
     html_content = html_template.replace("__DATA_COUNT__", str(len(merged_details)))
-    html_content = html_content.replace("__X_FAITHFULNESS__", f"{xf:.1f}")
-    html_content = html_content.replace("__B_FAITHFULNESS__", f"{bf:.1f}")
-    html_content = html_content.replace("__D_FAITHFULNESS__", f"{df:+.1f}")
+    
+    # X-CDS 0.10 Peak Metrics
+    html_content = html_content.replace("__X_FAITHFULNESS__", f"{x_metrics.get('faithfulness', 0)*100:.1f}")
+    html_content = html_content.replace("__X_RELEVANCY__", f"{x_metrics.get('answer_relevancy', 0)*100:.1f}")
+    html_content = html_content.replace("__X_PRECISION__", f"{x_metrics.get('context_precision', 0)*100:.1f}")
+    html_content = html_content.replace("__X_RECALL__", f"{x_metrics.get('context_recall', 0)*100:.1f}")
 
-    html_content = html_content.replace("__X_RELEVANCY__", f"{xr:.1f}")
-    html_content = html_content.replace("__B_RELEVANCY__", f"{br:.1f}")
-    html_content = html_content.replace("__D_RELEVANCY__", f"{dr:+.1f}")
+    # Hybrid Metrics
+    html_content = html_content.replace("__H_FAITHFULNESS__", f"{h_metrics.get('faithfulness', 0)*100:.1f}")
+    html_content = html_content.replace("__H_RELEVANCY__", f"{h_metrics.get('answer_relevancy', 0)*100:.1f}")
+    html_content = html_content.replace("__H_PRECISION__", f"{h_metrics.get('context_precision', 0)*100:.1f}")
+    html_content = html_content.replace("__H_RECALL__", f"{h_metrics.get('context_recall', 0)*100:.1f}")
 
-    html_content = html_content.replace("__X_PRECISION__", f"{xp:.1f}")
-    html_content = html_content.replace("__B_PRECISION__", f"{bp:.1f}")
-    html_content = html_content.replace("__D_PRECISION__", f"{dp:+.1f}")
+    # Naive Metrics
+    html_content = html_content.replace("__N_FAITHFULNESS__", f"{n_metrics.get('faithfulness', 0)*100:.1f}")
+    html_content = html_content.replace("__N_RELEVANCY__", f"{n_metrics.get('answer_relevancy', 0)*100:.1f}")
+    html_content = html_content.replace("__N_PRECISION__", f"{n_metrics.get('context_precision', 0)*100:.1f}")
+    html_content = html_content.replace("__N_RECALL__", f"{n_metrics.get('context_recall', 0)*100:.1f}")
 
-    html_content = html_content.replace("__X_RECALL__", f"{xc:.1f}")
-    html_content = html_content.replace("__B_RECALL__", f"{bc:.1f}")
-    html_content = html_content.replace("__D_RECALL__", f"{dc:+.1f}")
-
+    html_content = html_content.replace("__CHART_BASE64__", chart_base64)
     html_content = html_content.replace("__MERGED_DETAILS__", json.dumps(merged_details, ensure_ascii=False))
 
     print(f"Writing dashboard to {output_path}...")

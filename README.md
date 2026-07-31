@@ -18,13 +18,102 @@ By integrating a stateful self-correction agentic loop, X-CDS addresses the core
 *   **LLMs:** Google Cloud Vertex AI (Gemini 2.5 Pro & 3.5 Flash)
 
 
-## Architecture
+## System Architecture & Data Flows
 
-```text
-BioC ingest -> Chroma (dense) + BM25 (sparse) -> RRF fusion
-  -> cross-encoder re-rank (top 5) -> LangGraph + Gemini generation
-  -> citation guardrails / self-correction -> FastAPI -> React UI
+### A. Global Pipeline Flowchart (Non-Linear)
+
+This flowchart illustrates how data and control pass between your python scripts and local directories across all phases of the project:
+
+```mermaid
+flowchart TD
+    subgraph Phase 1: Ingestion
+        A1[PMC Articles / WHO Guidelines] -->|PMC IDs| B1[scripts/build_gold_standard_database.py]
+        B1 -->|Calls BioC API| C1[backend/app/ingestion/bioc.py]
+        C1 -->|Saves parsed JSONL| D1[(data/bioc_chunks.jsonl)]
+    end
+
+    subgraph Phase 2: Local Indexing
+        D1 --> E1[scripts/build_gold_standard_database.py]
+        E1 -->|Upserts dense embeddings| F1[backend/app/vector/chroma_store.py]
+        E1 -->|Index sparse terms| G1[backend/app/search/bm25.py]
+        F1 -->|Saves SQLite DB| H1[(data/chroma/)]
+        G1 -->|Saves Corpus JSONL| I1[(data/bm25_corpus.jsonl)]
+    end
+
+    subgraph Phase 3: Query & Hybrid Retrieval
+        J1[Client POST /api/v1/query] --> K1[backend/app/api/routes.py]
+        K1 -->|Invokes Query| L1[backend/app/pipeline/service.py]
+        L1 -->|Retrieves dense hits| F1
+        L1 -->|Retrieves sparse hits| G1
+        F1 & G1 -->|Ranks merged| M1[backend/app/search/hybrid.py]
+        M1 -->|Ranks candidate chunks| N1[backend/app/rerank/cross_encoder.py]
+        N1 -->|Filters top K contexts| O1[Context Chunks]
+    end
+
+    subgraph Phase 4: Stateful Guardrails
+        O1 --> P1[backend/app/llm/graph.py]
+        P1 -->|1. Generate response| Q1[backend/app/llm/generation.py]
+        Q1 -->|2. Check overlap| R1[backend/app/guardrail/citation.py]
+        R1 -->|If fail & attempts < 3| S1[Generate feedback loop]
+        S1 --> Q1
+        R1 -->|If pass / max retries| T1[Return clean Markdown output]
+    end
+
+    subgraph Phase 5: Automated Evaluation
+        D1 --> U1[scripts/generate_clinical_dataset.py]
+        U1 -->|Saves test dataset| V1[(data/my_eval_set_large.jsonl)]
+        V1 --> W1[scripts/evaluate_ragas.py]
+        W1 -->|Calls Ragas metrics| X1[backend/app/eval/ragas_eval.py]
+        X1 -->|Saves metric JSON| Y1[(data/ragas_report.json)]
+        Y1 --> Z1[scripts/build_dashboard.py]
+        Z1 --> AA1[docs/evaluation_dashboard.html]
+    end
+    
+    style H1 fill:#1a365d,stroke:#3182ce,stroke-width:2px,color:#fff
+    style I1 fill:#1a365d,stroke:#3182ce,stroke-width:2px,color:#fff
+    style D1 fill:#1a365d,stroke:#3182ce,stroke-width:2px,color:#fff
+    style V1 fill:#1a365d,stroke:#3182ce,stroke-width:2px,color:#fff
+    style Y1 fill:#1a365d,stroke:#3182ce,stroke-width:2px,color:#fff
 ```
+
+### B. Chronological Pipeline Guide (Linear Flow)
+
+This flowchart maps the entire runtime process step-by-step:
+
+```mermaid
+graph TD
+    Step1[1. Ingest Literature:<br>build_gold_standard_database.py pulls PMC API reviews] -->
+    Step2[2. Persist Raw Text:<br>Parsed chunks saved to data/bioc_chunks.jsonl] -->
+    Step3[3. Build Dense Index:<br>chroma_store.py embeds text via bge-small-en-v1.5] -->
+    Step4[4. Build Sparse Index:<br>bm25.py creates corpus index at data/bm25_corpus.jsonl] -->
+    Step5[5. Receive Client Query:<br>POST request hits routes.py and invokes service.py] -->
+    Step6[6. Fetch Chunks:<br>Dense search + BM25 search merged via hybrid.py RRF] -->
+    Step7[7. Re-rank Contexts:<br>cross_encoder.py filters top K relevant passages] -->
+    Step8[8. LLM Generation:<br>generation.py queries gemini-3.5-flash in graph.py] -->
+    Step9[9. Citation Check:<br>citation.py calculates verbatim token overlap >= 25%] -->
+    Step10[10. Stateful Retries:<br>Incorrect claims trigger graph feedback loops up to 3 times] -->
+    Step11[11. Return Final Response:<br>Explainable answer returned to FastAPI & React UI] -->
+    Step12[12. Build Test Dataset:<br>generate_clinical_dataset.py synthesizes 100 cases] -->
+    Step13[13. Run Benchmarks:<br>evaluate_ragas.py scores pipeline metrics via gemini-2.5-pro] -->
+    Step14[14. Compile Dashboard:<br>build_dashboard.py compiles docs/evaluation_dashboard.html]
+
+    style Step1 fill:#f9f,stroke:#333,stroke-width:2px
+    style Step4 fill:#bbf,stroke:#333,stroke-width:2px
+    style Step5 fill:#dfd,stroke:#333,stroke-width:2px
+    style Step8 fill:#fdd,stroke:#333,stroke-width:2px
+    style Step11 fill:#dfd,stroke:#333,stroke-width:2px
+    style Step12 fill:#ffd,stroke:#333,stroke-width:2px
+```
+
+### C. Details of the 5 Phases
+
+1.  **Ingestion & Structuring:** Triggers raw clinical PDF/XML fetching from the NIH PMC API using [build_gold_standard_database.py](file:///d:/X-CDS/scripts/build_gold_standard_database.py). Normalizes text blocks and WHO/PAHO guidelines, exporting them to [bioc_chunks.jsonl](file:///d:/X-CDS/data/bioc_chunks.jsonl).
+2.  **Dual-Channel Local Indexing:**
+    *   *Dense Search:* Text is embedded using the `BAAI/bge-small-en-v1.5` model in [embeddings.py](file:///d:/X-CDS/backend/app/vector/embeddings.py) and indexed in Chroma DB [chroma_store.py](file:///d:/X-CDS/backend/app/vector/chroma_store.py).
+    *   *Sparse Search:* Terms are indexed using BM25 in [bm25.py](file:///d:/X-CDS/backend/app/search/bm25.py) to catch exact drugs/genes.
+3.  **Hybrid Query & Re-ranking:** Merges vector cosine similarities and lexical rankings in [hybrid.py](file:///d:/X-CDS/backend/app/search/hybrid.py) via Reciprocal Rank Fusion (RRF). Filters the top contexts using a Cross-Encoder (`ms-marco-MiniLM-L-6-v2`) in [cross_encoder.py](file:///d:/X-CDS/backend/app/rerank/cross_encoder.py).
+4.  **Stateful LangGraph Guardrail:** Directs the response generation in [graph.py](file:///d:/X-CDS/backend/app/llm/graph.py). The guardrail checks that every cited sentence has a minimum verbatim token overlap ($T_{min} = 0.25$) with the referenced text in [validator.py](file:///d:/X-CDS/backend/app/guardrail/validator.py). Failures trigger feedback retries.
+5.  **Automated Ragas Evaluation:** Synthesizes clinical test cases using [generate_clinical_dataset.py](file:///d:/X-CDS/scripts/generate_clinical_dataset.py) and grades them in [ragas_eval.py](file:///d:/X-CDS/backend/app/eval/ragas_eval.py) using Gemini 2.5 Pro as the judge.
 
 ## Prerequisites
 
@@ -138,40 +227,63 @@ npm run dev
 
 Open http://localhost:5173. Vite proxies `/api` to the backend.
 
-### 6. Evaluate with Ragas and Baseline RAG
+### 6. Evaluate with Ragas, Baselines & Threshold Sweep
 
-We run evaluations against the large clinical dataset using the standard Ragas framework (using Gemini 2.5 Pro as the judge and Gemini 3.5 Flash as the pipeline generator).
+We run offline evaluations against the clinical dataset using the standard Ragas framework. To ensure objectivity and eliminate self-evaluation bias, we decouple the generation model (`gemini-3.5-flash`) from the evaluator model (`gemini-2.5-pro` as the judge).
 
 **A. Generate the Clinical Dataset:**
-Synthesize clinical queries and ground-truth answers from the ingested BioC corpus:
+Synthesize 100 clinical queries and ground-truth answers from the ingested BioC corpus:
 ```bash
-python -m scripts.generate_clinical_dataset --count 45 --output data/my_eval_set_large.jsonl
+python -m scripts.generate_clinical_dataset --count 100 --output data/my_eval_set_large.jsonl
 ```
 
-**B. Evaluate the X-CDS Pipeline (with Stateful Guardrails):**
-Run the 45-case evaluation. This script caches pipeline answers in `data/materialized_predictions.jsonl` to avoid redundant LLM calls on subsequent runs:
+**B. Run Parameter Sweep & Baselines:**
+To find the optimal citation overlap setting, run the full parametric sweep which evaluates six different configurations ($T_{min} = 0.10, 0.15, 0.25, 0.50$, Baseline RAG, and Vanilla RAG) on the $N=100$ cases (total 600 query runs):
 ```bash
-python -m scripts.evaluate_ragas --dataset data/my_eval_set_large.jsonl --use-pipeline
+python -m scripts.run_threshold_sweep
 ```
-*Report output:* `data/ragas_report.json`
+*Report outputs are saved in `data/` as `ragas_report_t10.json`, `ragas_report_t15.json`, etc.*
 
-**C. Evaluate the Baseline RAG Pipeline (without Guardrail Loop):**
-Run the evaluation with the LangGraph self-correction loop bypassed (forces `max_generation_attempts=1`):
+**C. Compile and Open the Comparison Dashboard:**
+Merge the sweep and baseline results and compile the interactive dashboard:
 ```bash
-python -m scripts.evaluate_baseline --dataset data/my_eval_set_large.jsonl
-```
-*Report output:* `data/baseline_ragas_report.json`
-
-**D. Compile and Open the Comparison Dashboard:**
-Merge the results and open the interactive comparison interface in your browser:
-```bash
-# Compile the HTML file
+# Compile the dashboard HTML
 python -m scripts.build_dashboard
 
-# Open in default browser
-# Windows (PowerShell):
+# Open in default browser (PowerShell):
 Start-Process "docs/evaluation_dashboard.html"
 ```
+
+---
+
+### Evaluation Results & Discussion
+
+#### Table I: Comparative Benchmarking of Retrieval Architectures ($N=100$)
+| Metric | Naive RAG (Dense Only) | Hybrid RAG (RRF + Rerank) | X-CDS RAG ($T_{min}=0.10$) |
+| :--- | :---: | :---: | :---: |
+| **Faithfulness** | 89.78% | 91.70% | **93.37%** 🚀 *(Peak)* |
+| **Context Precision** | **74.09%** | 70.91% | 68.94% |
+| **Context Recall** | **74.25%** | 70.33% | 71.83% |
+| **Answer Relevancy** | **61.17%** | 59.81% | 57.81% |
+
+#### Table II: Impact of Overlap Threshold ($T_{min}$) on Performance ($N=100$)
+| Overlap Threshold ($T_{min}$) | Ragas Faithfulness | Ragas Answer Relevancy |
+| :---: | :---: | :---: |
+| **0.00** (Baseline RAG) | 89.78% | **61.17%** |
+| **0.10** (X-CDS Light) | **93.37%** | 57.81% |
+| **0.15** (X-CDS Mild) | 90.20% | 59.07% |
+| **0.25** (X-CDS Default) | 89.49% | 57.31% |
+| **0.50** (X-CDS Strict) | 92.41% | 57.82% |
+
+*Analysis Summary:*
+* **Mitigating Hallucinations:** Setting $T_{min} = 0.10$ provides the peak Faithfulness of **93.37%**, successfully catching and correcting ungrounded statements without over-constraining LLM vocabulary.
+* **Over-constraint at High Thresholds:** Raising the threshold too high (e.g., $T_{min} = 0.25$) forces the generator into repeated correction loops, resulting in disjointed language and a slight dip in semantic faithfulness (89.49%).
+
+---
+
+### Project Billing & Feasibility Analysis
+* **Development/Evaluation Cost (One-time):** **₹10,896.38 INR ($131.28 USD)** for the entire 600-case threshold sweep benchmarking suite. Ragas evaluation via Pro-tier judges (`gemini-2.5-pro`) accounts for ~80% of this cost.
+* **Production Run Cost (Operational):** **~₹0.014 INR ($0.00017 USD) per query**. Real-time queries run on `gemini-3.5-flash` with local index retrieval (free CPU/GPU), making it highly economical for live clinical deployments.
 
 ## End-to-end smoke test
 

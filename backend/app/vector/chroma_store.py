@@ -94,23 +94,28 @@ class ChromaVectorStore:
         return int(self._collection.count())
 
     def upsert_chunks(self, chunks: Sequence[BiomedicalChunk]) -> int:
-        """Embed and upsert BiomedicalChunk records into the local index."""
+        """Embed and upsert BiomedicalChunk records into the local index in batches."""
 
         if not chunks:
             return 0
 
-        ids = [chunk.chunk_id for chunk in chunks]
-        documents = [chunk.text for chunk in chunks]
-        metadatas = [_chunk_metadata(chunk) for chunk in chunks]
-        embeddings = self.embedding_function.embed_documents(documents)
+        batch_size = 2000
+        total_upserted = 0
+        for i in range(0, len(chunks), batch_size):
+            batch = chunks[i:i + batch_size]
+            ids = [chunk.chunk_id for chunk in batch]
+            documents = [chunk.text for chunk in batch]
+            metadatas = [_chunk_metadata(chunk) for chunk in batch]
+            embeddings = self.embedding_function.embed_documents(documents)
 
-        self._collection.upsert(
-            ids=ids,
-            documents=documents,
-            metadatas=metadatas,
-            embeddings=embeddings,
-        )
-        return len(ids)
+            self._collection.upsert(
+                ids=ids,
+                documents=documents,
+                metadatas=metadatas,
+                embeddings=embeddings,
+            )
+            total_upserted += len(ids)
+        return total_upserted
 
     def upsert_texts(
         self,
@@ -119,7 +124,7 @@ class ChromaVectorStore:
         texts: Sequence[str],
         metadatas: Sequence[Mapping[str, Any]] | None = None,
     ) -> int:
-        """Embed and upsert raw text passages with optional metadata."""
+        """Embed and upsert raw text passages with optional metadata in batches."""
 
         if not (len(ids) == len(texts)):
             raise ValueError("ids and texts must have the same length")
@@ -131,14 +136,22 @@ class ChromaVectorStore:
         prepared_metadatas = [
             _sanitize_metadata(dict(metadata)) for metadata in (metadatas or [{}] * len(ids))
         ]
-        embeddings = self.embedding_function.embed_documents(list(texts))
-        self._collection.upsert(
-            ids=list(ids),
-            documents=list(texts),
-            metadatas=prepared_metadatas,
-            embeddings=embeddings,
-        )
-        return len(ids)
+
+        batch_size = 2000
+        total_upserted = 0
+        for i in range(0, len(ids), batch_size):
+            batch_ids = list(ids[i:i + batch_size])
+            batch_texts = list(texts[i:i + batch_size])
+            batch_metadatas = prepared_metadatas[i:i + batch_size]
+            embeddings = self.embedding_function.embed_documents(batch_texts)
+            self._collection.upsert(
+                ids=batch_ids,
+                documents=batch_texts,
+                metadatas=batch_metadatas,
+                embeddings=embeddings,
+            )
+            total_upserted += len(batch_ids)
+        return total_upserted
 
     def similarity_search(self, query: str, *, top_k: int = 5) -> list[DenseHit]:
         """Return the top-k dense matches for a free-text clinical query."""
