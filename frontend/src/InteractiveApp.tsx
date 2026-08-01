@@ -1,6 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { queryXcds } from "./api";
 import type { QueryResponse } from "./api";
+import { AnswerPanel } from "./components/AnswerPanel";
+import { EvidencePanel } from "./components/EvidencePanel";
 
 // Reranker model options
 const MODEL_OPTIONS = [
@@ -8,9 +10,29 @@ const MODEL_OPTIONS = [
   { value: "BAAI/bge-reranker-v2-m3", label: "BGE-Reranker-v2-m3 (Upgraded / 567MB)" }
 ];
 
+const PRESETS = [
+  {
+    label: "Select a clinical preset query...",
+    value: "",
+  },
+  {
+    label: "Dengue NSAID Hemorrhagic Risk Warning",
+    value: "A patient presents with acute onset of high fever, maculopapular rash, and severe joint pain after travel to India. What NSAID risk must be considered if this is Dengue?",
+  },
+  {
+    label: "Zika Virus Maternal-Fetal Pregnancy Screening",
+    value: "A pregnant patient in her first trimester is diagnosed with Zika virus. What fetal complications should be screened for?",
+  },
+  {
+    label: "Dengue Shock Syndrome Critical Warning Signs",
+    value: "What hematological and fluid balance changes warn of progression to Dengue Shock Syndrome (DSS)?",
+  },
+];
+
 export function InteractiveApp() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [response, setResponse] = useState<QueryResponse | null>(null);
   const [activeCitation, setActiveCitation] = useState<number | null>(null);
@@ -19,23 +41,20 @@ export function InteractiveApp() {
   const [selectedModel, setSelectedModel] = useState(MODEL_OPTIONS[0].value);
   const [nValue, setNValue] = useState(0.25);
 
-  const citationRef = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    if (activeCitation !== null) {
-      citationRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
-  }, [activeCitation]);
-
   async function handleQuerySubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = query.trim();
     if (!trimmed) return;
 
     setLoading(true);
+    setElapsed(0);
     setError(null);
     setResponse(null);
     setActiveCitation(null);
+
+    const timer = setInterval(() => {
+      setElapsed((prev) => prev + 0.1);
+    }, 100);
 
     try {
       const res = await queryXcds(trimmed, selectedModel, nValue);
@@ -46,21 +65,24 @@ export function InteractiveApp() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Request failed");
     } finally {
+      clearInterval(timer);
       setLoading(false);
     }
   }
 
   function handleDemoLoad() {
-    setQuery("What specific neurodevelopmental processes does Zika virus disrupt according to mass spectrometry?");
-    setSelectedModel("BAAI/bge-reranker-v2-m3");
-    setNValue(0.25);
+    setQuery("A pregnant patient in her first trimester is diagnosed with Zika virus. What fetal complications should be screened for?");
+    setSelectedModel("cross-encoder/ms-marco-MiniLM-L-6-v2");
+    setNValue(0.10);
   }
 
-  // Regex pattern to extract citation markers in response
-  const citationRegex = /(\[\d+\])/g;
+  const isAbstention = response && (
+    response.answer.toLowerCase().includes("insufficient evidence") || 
+    response.answer.toLowerCase().includes("no evidence")
+  );
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+    <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-6 sm:px-6 lg:px-8 lg:py-8 pb-16">
       {/* Header */}
       <header className="rise-in mb-6 lg:mb-8">
         <div className="flex items-start justify-between">
@@ -141,6 +163,28 @@ export function InteractiveApp() {
               </p>
             </div>
 
+            {/* Preset Selector */}
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-[var(--muted)]">
+                Clinical Presets
+              </label>
+              <select
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setQuery(e.target.value);
+                  }
+                }}
+                value={PRESETS.find(p => p.value === query) ? query : ""}
+                className="w-full rounded-xl border border-[var(--line)] bg-white/70 px-4 py-2.5 text-[0.92rem] text-[var(--ink)] outline-none focus:border-[var(--accent)]"
+              >
+                {PRESETS.map((p, idx) => (
+                  <option key={idx} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Query Input */}
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-[var(--muted)]">
@@ -169,10 +213,33 @@ export function InteractiveApp() {
                 disabled={loading}
                 className="rounded-xl border border-[var(--line)] bg-white/60 px-5 py-2.5 text-sm font-semibold text-[var(--ink)] transition hover:border-[var(--accent)] disabled:opacity-50"
               >
-                Load Demo
+                Load Demo Setting
               </button>
             </div>
           </form>
+
+          {loading && (
+            <div className="mt-4 rounded-xl border border-[var(--line)] bg-slate-50/50 p-4 flex flex-col items-center justify-center space-y-3">
+              <div className="flex items-center space-x-3">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent)] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-[var(--accent-deep)]"></span>
+                </span>
+                <span className="text-sm font-semibold text-[var(--accent-deep)]">
+                  {elapsed < 1.5
+                    ? "Retrieving clinical literature..."
+                    : elapsed < 3.0
+                    ? "Reranking context via Cross-Encoder..."
+                    : elapsed < 6.0
+                    ? "Generating clinical response via Gemini..."
+                    : "Verifying citations & running self-correction guardrails..."}
+                </span>
+              </div>
+              <span className="text-xs text-[var(--muted)] font-mono">
+                Elapsed time: {elapsed.toFixed(1)}s
+              </span>
+            </div>
+          )}
 
           {error && (
             <p className="mt-4 rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-[var(--danger)]" role="alert">
@@ -230,45 +297,31 @@ export function InteractiveApp() {
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-2xl text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>Generated Answer</h2>
               {response && (
-                <span className="text-xs text-[var(--muted)] bg-white/60 px-2 py-0.5 rounded-md border border-[var(--line)]">
-                  Gemini-3.5-Flash
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-[var(--muted)] bg-white/60 px-2 py-0.5 rounded border border-[var(--line)] font-semibold">
+                    Gemini-2.5-Flash
+                  </span>
+                  <span className="text-[10px] tracking-wide text-[var(--muted)] uppercase font-semibold">
+                    {response.validation_passed ? "Verified" : "Unverified"}
+                  </span>
+                </div>
               )}
             </div>
 
-            {response ? (
-              <div className="space-y-4">
-                <p className="text-[1.02rem] leading-8 text-[var(--ink)]">
-                  {response.answer.split(citationRegex).map((part, idx) => {
-                    const isMatch = part.match(/^\[(\d+)\]$/);
-                    if (!isMatch) return part;
-                    const index = Number(isMatch[1]);
-                    const isActive = activeCitation === index;
-                    return (
-                      <button
-                        key={idx}
-                        type="button"
-                        className={`mx-0.5 inline-flex min-w-7 items-center justify-center rounded-md px-1.5 py-0.5 align-baseline text-[0.8rem] font-bold transition duration-200 ${
-                          isActive
-                            ? "bg-[var(--accent)] text-white"
-                            : "bg-[var(--highlight)] text-[var(--accent-deep)] hover:bg-[var(--accent)] hover:text-white"
-                        }`}
-                        onClick={() => setActiveCitation(index)}
-                      >
-                        {part}
-                      </button>
-                    );
-                  })}
-                </p>
-                <p className="text-xs text-[var(--muted)] italic">
-                  Click on citation markers to inspect and highlight the corresponding source passage.
-                </p>
+            {isAbstention && (
+              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50/50 p-3.5 text-xs text-amber-800 flex items-start space-x-2">
+                <span className="text-sm">⚠️</span>
+                <div>
+                  <strong>Safe Abstention Triggered:</strong> The referenced clinical guidelines do not contain direct evidence for this clinical query. To prevent hallucination, the system abstains from generating diagnostic assertions.
+                </div>
               </div>
-            ) : (
-              <p className="text-[var(--muted)] text-[0.95rem]">
-                Answers will appear here along with verified citations.
-              </p>
             )}
+
+            <AnswerPanel
+              answer={response?.answer ?? ""}
+              activeCitation={activeCitation}
+              onCitationClick={setActiveCitation}
+            />
           </div>
 
           {/* Evidence Chunks with Score Visualizer */}
@@ -278,81 +331,18 @@ export function InteractiveApp() {
               <p className="mt-1 text-sm text-[var(--muted)]">Source passages matched and scored by the cross-encoder.</p>
             </div>
 
-            {response && response.contexts.length > 0 ? (
-              <div className="flex flex-col gap-4 max-h-[500px] overflow-y-auto pr-1">
-                {response.contexts.map((context) => {
-                  const isActive = activeCitation === context.index;
-                  
-                  
-                  return (
-                    <article
-                      key={context.chunk_id}
-                      ref={isActive ? citationRef : undefined}
-                      className={`rounded-xl border px-4 py-4 transition duration-300 ${
-                        isActive
-                          ? "chunk-flash border-[var(--highlight-ring)] bg-[var(--highlight)]"
-                          : "border-[var(--line)] bg-white/55"
-                      }`}
-                    >
-                      <header className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-                        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                          <span className={`inline-flex min-w-8 items-center justify-center rounded-md px-2 py-0.5 text-sm font-semibold ${
-                            isActive ? "bg-[var(--accent)] text-white" : "bg-[var(--panel-strong)] text-[var(--accent-deep)]"
-                          }`}>
-                            [{context.index}]
-                          </span>
-                          <span className="text-sm font-bold text-[var(--ink)]">
-                            {context.section || "Passage"}
-                          </span>
-                          {context.pmcid && (
-                            <span className="text-xs text-[var(--muted)]">
-                              {context.pmcid}
-                            </span>
-                          )}
-                        </div>
-                        {context.score !== undefined && (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[0.7rem] font-bold text-[var(--muted)] uppercase tracking-wider">Match:</span>
-                            <span className="text-xs font-bold text-[var(--accent-deep)]">{(context.score * 100).toFixed(1)}%</span>
-                          </div>
-                        )}
-                      </header>
-                      
-                      {context.score !== undefined && (
-                        <div className="mb-3 h-1 w-full rounded-full bg-[var(--line)] overflow-hidden">
-                          <div
-                            className="h-full bg-[var(--accent)]"
-                            style={{ width: `${Math.max(0, Math.min(100, context.score * 100))}%` }}
-                          />
-                        </div>
-                      )}
-                      
-                      <p className="text-[0.95rem] leading-7 text-[var(--ink)]">
-                        {context.text}
-                      </p>
-                      
-                      {context.source_url && (
-                        <a
-                          className="mt-3 inline-block text-sm text-[var(--accent-deep)] underline-offset-2 hover:underline"
-                          href={context.source_url}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Open PMC source
-                        </a>
-                      )}
-                    </article>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-[var(--muted)] text-[0.95rem]">
-                Supporting passages will appear here with cross-encoder scores.
-              </p>
-            )}
+            <EvidencePanel
+              contexts={response?.contexts ?? []}
+              activeCitation={activeCitation}
+            />
           </div>
         </section>
       </main>
+
+      {/* Sticky Medical Disclaimer Banner */}
+      <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-amber-200 bg-amber-50 py-2.5 text-center text-xs font-semibold text-amber-800 backdrop-blur-md">
+        ⚠️ <strong>Research Prototype:</strong> This tool is for demonstration purposes only and must not be used for medical diagnosis, treatment, or clinical decision-making.
+      </footer>
     </div>
   );
 }
