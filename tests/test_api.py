@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
+from typing import Any
 
 from fastapi.testclient import TestClient
 
@@ -51,6 +52,8 @@ class FakeGenerator:
         *,
         generation_attempts: int = 0,
         max_generation_attempts: int | None = None,
+        citation_min_token_overlap: float | None = None,
+        **kwargs: Any,
     ) -> dict:
         return {
             "answer": "ACE inhibitors reduce blood pressure in hypertension [1].",

@@ -74,14 +74,26 @@ class CrossEncoderReranker:
         config: CrossEncoderConfig | None = None,
         scorer: PairScorer | None = None,
     ) -> None:
-        self.config = config or CrossEncoderConfig(
-            model_name=os.getenv(
-                "CROSS_ENCODER_MODEL_NAME",
-                DEFAULT_CROSS_ENCODER_MODEL,
-            ),
-            device=os.getenv("CROSS_ENCODER_DEVICE", "cpu"),
-            top_k=int(os.getenv("RERANK_TOP_K", str(DEFAULT_RERANK_TOP_K))),
-        )
+        if config is None:
+            try:
+                from backend.app.config.settings import get_settings
+                settings = get_settings()
+                self.config = CrossEncoderConfig(
+                    model_name=settings.cross_encoder_model_name,
+                    device=settings.cross_encoder_device,
+                    top_k=settings.rerank_top_k,
+                )
+            except Exception:
+                self.config = CrossEncoderConfig(
+                    model_name=os.getenv(
+                        "CROSS_ENCODER_MODEL_NAME",
+                        DEFAULT_CROSS_ENCODER_MODEL,
+                    ),
+                    device=os.getenv("CROSS_ENCODER_DEVICE", "cpu"),
+                    top_k=int(os.getenv("RERANK_TOP_K", str(DEFAULT_RERANK_TOP_K))),
+                )
+        else:
+            self.config = config
         if self.config.top_k <= 0:
             raise ValueError("top_k must be greater than 0")
         self.scorer = scorer or SentenceTransformerPairScorer(self.config)

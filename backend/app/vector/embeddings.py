@@ -33,7 +33,18 @@ class HuggingFaceEmbeddingFunction:
     """Dense encoder backed by a local Hugging Face sentence-transformer."""
 
     def __init__(self, config: EmbeddingConfig | None = None) -> None:
-        self.config = config or EmbeddingConfig()
+        if config is None:
+            try:
+                from backend.app.config.settings import get_settings
+                settings = get_settings()
+                self.config = EmbeddingConfig(
+                    model_name=settings.embedding_model_name,
+                    device=settings.embedding_device,
+                )
+            except Exception:
+                self.config = EmbeddingConfig()
+        else:
+            self.config = config
         self._model = _load_sentence_transformer(
             self.config.model_name,
             self.config.device,

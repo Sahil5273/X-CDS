@@ -64,7 +64,7 @@ def run_full_rag_pipeline(
     
     settings = get_settings()
     settings.gcp_project_id = "x-cds-502821"
-    settings.gcp_region = "us-central1"
+    settings.gcp_region = "global"
     settings.cross_encoder_model_name = reranker_model_name
     
     service = build_default_service(settings)
@@ -133,7 +133,7 @@ def run_ragas_evaluation_all_metrics(predictions: list[dict]) -> dict[str, float
 
     settings = get_settings()
     settings.gcp_project_id = "x-cds-502821"
-    settings.gcp_region = "us-central1"
+    settings.gcp_region = "global"
 
     evaluator_llm = LangchainLLMWrapper(
         ChatGoogleGenerativeAI(

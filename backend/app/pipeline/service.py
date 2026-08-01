@@ -92,26 +92,28 @@ class XRAGService:
         if not cleaned:
             raise ValueError("query cannot be empty")
 
-        # Get initial fused candidates from hybrid search
-        hybrid = self.retriever.hybrid_retriever.search(cleaned)
-
-        # Decide which reranker to use
-        reranker = self.retriever.reranker
-        if cross_encoder_model_name and cross_encoder_model_name != getattr(reranker.config, "model_name", None):
-            reranker = CrossEncoderReranker(
-                CrossEncoderConfig(
-                    model_name=cross_encoder_model_name,
-                    device=getattr(self.settings, "cross_encoder_device", "cpu"),
-                    top_k=getattr(self.settings, "rerank_top_k", 5),
+        # Decide which retriever to use (local default or dynamically overridden)
+        retriever = self.retriever
+        has_reranker_attrs = hasattr(self.retriever, "reranker") and hasattr(self.retriever, "hybrid_retriever")
+        if has_reranker_attrs and cross_encoder_model_name:
+            current_model_name = getattr(getattr(self.retriever.reranker, "config", None), "model_name", None)
+            if cross_encoder_model_name != current_model_name:
+                dynamic_reranker = CrossEncoderReranker(
+                    CrossEncoderConfig(
+                        model_name=cross_encoder_model_name,
+                        device=getattr(self.settings, "cross_encoder_device", "cpu"),
+                        top_k=getattr(self.settings, "rerank_top_k", 5),
+                    )
                 )
-            )
+                retriever = RefinedHybridRetriever(
+                    hybrid_retriever=self.retriever.hybrid_retriever,
+                    reranker=dynamic_reranker,
+                    rerank_top_k=self.retriever.rerank_top_k,
+                )
 
-        # Re-rank candidates using the selected reranker
-        reranked_hits = reranker.rerank(
-            cleaned,
-            hybrid.fused_hits,
-            top_k=self.retriever.rerank_top_k,
-        )
+        # Retrieve and rerank using unified search method
+        refined_result = retriever.search(cleaned)
+        reranked_hits = refined_result.reranked_hits
 
         contexts = [
             SourceContext.from_reranked_hit(index, hit).model_dump()
