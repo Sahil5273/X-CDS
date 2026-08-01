@@ -6,6 +6,7 @@ Usage:
   python -m scripts.build_pilot_eval_set
   python -m scripts.ingest_pilot_guidelines --backup-chroma
   python -m scripts.run_pilot_eval --use-pipeline
+  python -m scripts.run_pilot_eval --ragas-only
   python -m scripts.run_pilot_eval --use-pipeline --systems xcds --skip-ragas
 """
 
@@ -110,6 +111,24 @@ def materialize_system(
     return predictions
 
 
+def load_predictions(path: Path) -> list[EvalExample]:
+    predictions: list[EvalExample] = []
+    with path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            if not line.strip():
+                continue
+            record = json.loads(line)
+            predictions.append(
+                EvalExample(
+                    question=str(record["question"]),
+                    answer=str(record["answer"]),
+                    contexts=[str(item) for item in record.get("contexts", [])],
+                    ground_truth=str(record["ground_truth"]),
+                )
+            )
+    return predictions
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -127,6 +146,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--skip-ragas",
         action="store_true",
         help="Only materialize answers; skip Ragas judge calls.",
+    )
+    parser.add_argument(
+        "--ragas-only",
+        action="store_true",
+        help="Score existing pilot_*_predictions.jsonl files; skip pipeline calls.",
     )
     parser.add_argument(
         "--systems",
@@ -164,17 +188,28 @@ def main() -> None:
         if "ibuprofen" in ex.question.lower() or "nsaid" in ex.question.lower()
     }
 
+    if args.ragas_only:
+        args.skip_ragas = False
+
     for system in args.systems:
         preds_path = ROOT / "data" / f"pilot_{system}_predictions.jsonl"
         report_path = ROOT / "data" / f"pilot_{system}_ragas_report.json"
 
-        if not args.use_pipeline:
-            print(f"Skipping {system} materialization (pass --use-pipeline).")
+        if args.ragas_only:
+            if not preds_path.exists():
+                raise FileNotFoundError(
+                    f"Missing predictions for {system}: {preds_path}. "
+                    "Run with --use-pipeline --skip-ragas first."
+                )
+            predictions = load_predictions(preds_path)
+            print(f"\nLoaded {len(predictions)} cached predictions for {system}.")
+        elif not args.use_pipeline:
+            print(f"Skipping {system} (pass --use-pipeline or --ragas-only).")
             continue
-
-        service = build_default_service()
-        answer_fn = builders[system](service)
-        predictions = materialize_system(system, examples, answer_fn, preds_path)
+        else:
+            service = build_default_service()
+            answer_fn = builders[system](service)
+            predictions = materialize_system(system, examples, answer_fn, preds_path)
 
         system_summary: dict[str, object] = {
             "predictions_path": str(preds_path),
