@@ -3,30 +3,12 @@ import { queryXcds } from "./api";
 import type { QueryResponse } from "./api";
 import { AnswerPanel } from "./components/AnswerPanel";
 import { EvidencePanel } from "./components/EvidencePanel";
+import { PRESETS } from "./presets";
 
 // Reranker model options
 const MODEL_OPTIONS = [
   { value: "cross-encoder/ms-marco-MiniLM-L-6-v2", label: "MiniLM-L-6-v2 (Default / 90MB)" },
   { value: "BAAI/bge-reranker-v2-m3", label: "BGE-Reranker-v2-m3 (Upgraded / 567MB)" }
-];
-
-const PRESETS = [
-  {
-    label: "Select a clinical preset query...",
-    value: "",
-  },
-  {
-    label: "Dengue NSAID Hemorrhagic Risk Warning",
-    value: "A patient presents with acute onset of high fever, maculopapular rash, and severe joint pain after travel to India. What NSAID risk must be considered if this is Dengue?",
-  },
-  {
-    label: "Zika Virus Maternal-Fetal Pregnancy Screening",
-    value: "A pregnant patient in her first trimester is diagnosed with Zika virus. What fetal complications should be screened for?",
-  },
-  {
-    label: "Dengue Shock Syndrome Critical Warning Signs",
-    value: "What hematological and fluid balance changes warn of progression to Dengue Shock Syndrome (DSS)?",
-  },
 ];
 
 export function InteractiveApp() {
@@ -41,11 +23,9 @@ export function InteractiveApp() {
   const [selectedModel, setSelectedModel] = useState(MODEL_OPTIONS[0].value);
   const [nValue, setNValue] = useState(0.25);
 
-  async function handleQuerySubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmed = query.trim();
-    if (!trimmed) return;
+  const [autoSubmit, setAutoSubmit] = useState(true);
 
+  async function runQuery(q: string, model: string, n: number) {
     setLoading(true);
     setElapsed(0);
     setError(null);
@@ -57,7 +37,7 @@ export function InteractiveApp() {
     }, 100);
 
     try {
-      const res = await queryXcds(trimmed, selectedModel, nValue);
+      const res = await queryXcds(q, model, n);
       setResponse(res);
       if (res.cited_indices.length > 0) {
         setActiveCitation(res.cited_indices[0]);
@@ -70,10 +50,25 @@ export function InteractiveApp() {
     }
   }
 
+  async function handleQuerySubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    await runQuery(trimmed, selectedModel, nValue);
+  }
+
   function handleDemoLoad() {
-    setQuery("A pregnant patient in her first trimester is diagnosed with Zika virus. What fetal complications should be screened for?");
-    setSelectedModel("cross-encoder/ms-marco-MiniLM-L-6-v2");
-    setNValue(0.10);
+    const demoQuery = "A pregnant patient in her first trimester is diagnosed with Zika virus. What fetal complications should be screened for?";
+    const demoModel = "cross-encoder/ms-marco-MiniLM-L-6-v2";
+    const demoN = 0.10;
+    
+    setQuery(demoQuery);
+    setSelectedModel(demoModel);
+    setNValue(demoN);
+    
+    if (autoSubmit) {
+      void runQuery(demoQuery, demoModel, demoN);
+    }
   }
 
   const isAbstention = response && (
@@ -199,7 +194,7 @@ export function InteractiveApp() {
             </div>
 
             {/* Submit & Demo Buttons */}
-            <div className="flex flex-wrap gap-3 pt-2">
+            <div className="flex flex-wrap items-center gap-3 pt-2">
               <button
                 type="submit"
                 disabled={loading || !query.trim()}
@@ -215,6 +210,15 @@ export function InteractiveApp() {
               >
                 Load Demo Setting
               </button>
+              <label className="flex items-center gap-2 text-xs font-semibold text-[var(--muted)] cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={autoSubmit}
+                  onChange={(e) => setAutoSubmit(e.target.checked)}
+                  className="rounded border-[var(--line)] text-[var(--accent)] focus:ring-[var(--accent)]"
+                />
+                Auto-submit on load
+              </label>
             </div>
           </form>
 
@@ -247,28 +251,36 @@ export function InteractiveApp() {
             </p>
           )}
 
-          {/* RAG Loop Verification Dashboard */}
           {response && (
             <div className="mt-8 border-t border-[var(--line)] pt-6">
               <h3 className="mb-4 text-lg font-bold text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>
                 Pipeline Telemetry
               </h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="rounded-xl border border-[var(--line)] bg-white/40 p-4">
                   <span className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider">
-                    Validation Status
+                    Generation Attempts
                   </span>
-                  <span className={`mt-1 inline-flex items-center gap-1.5 text-lg font-semibold ${response.validation_passed ? "text-green-600" : "text-amber-600"}`}>
-                    <span className={`h-2.5 w-2.5 rounded-full ${response.validation_passed ? "bg-green-600" : "bg-amber-600"}`} />
-                    {response.validation_passed ? "PASSED" : "FAILED"}
+                  <span className="block mt-1 text-2xl font-bold text-[var(--ink)]">
+                    {response.generation_attempts} {response.generation_attempts === 1 ? "attempt" : "attempts"}
                   </span>
                 </div>
                 <div className="rounded-xl border border-[var(--line)] bg-white/40 p-4">
                   <span className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider">
-                    Self-Correction Loops
+                    First-Pass Validation
                   </span>
-                  <span className="block mt-1 text-2xl font-bold text-[var(--ink)]">
-                    {response.generation_attempts} {response.generation_attempts === 1 ? "attempt" : "attempts"}
+                  <span className={`mt-1 inline-flex items-center gap-1.5 text-lg font-semibold ${response.generation_attempts === 1 && response.validation_passed ? "text-green-600" : "text-amber-600"}`}>
+                    <span className={`h-2.5 w-2.5 rounded-full ${response.generation_attempts === 1 && response.validation_passed ? "bg-green-600" : "bg-amber-600"}`} />
+                    {response.generation_attempts === 1 && response.validation_passed ? "PASSED" : "FAILED"}
+                  </span>
+                </div>
+                <div className="rounded-xl border border-[var(--line)] bg-white/40 p-4">
+                  <span className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider">
+                    Clinical Abstention
+                  </span>
+                  <span className={`mt-1 inline-flex items-center gap-1.5 text-lg font-semibold ${isAbstention ? "text-amber-600" : "text-green-600"}`}>
+                    <span className={`h-2.5 w-2.5 rounded-full ${isAbstention ? "bg-amber-600" : "bg-green-600"}`} />
+                    {isAbstention ? "REFUSED" : "COMPLETED"}
                   </span>
                 </div>
               </div>

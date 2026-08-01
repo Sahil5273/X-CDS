@@ -18,6 +18,14 @@ export function ReportApp() {
         {/* Navigation Actions */}
         <div className="flex flex-wrap gap-3">
           <a
+            href="/ieee_research_paper_v2_formatted.md"
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-xs font-semibold text-blue-700 transition hover:border-blue-400 hover:bg-blue-100"
+          >
+            Read IEEE Manuscript
+          </a>
+          <a
             href="/evaluation_report.pdf"
             download="X-CDS_Evaluation_Report.pdf"
             className="rounded-xl border border-green-200 bg-green-50 px-4 py-2.5 text-xs font-semibold text-green-700 transition hover:border-green-400 hover:bg-green-100"
@@ -38,6 +46,26 @@ export function ReportApp() {
           </a>
         </div>
       </header>
+
+      {/* Corpus Trust Strip */}
+      <div className="rise-in mb-6 flex flex-wrap items-center justify-around gap-6 rounded-2xl border border-[var(--line)] bg-slate-50/50 p-4 text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-[var(--muted)]" style={{ animationDelay: "30ms" }}>
+        <div className="flex items-center gap-2">
+          <span className="text-sm">🌐</span>
+          WHO Guidelines
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm">🏥</span>
+          PAHO Arbovirus Guidance
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm">🧬</span>
+          NIH PubMed Central (73 Journals)
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm">🛡️</span>
+          CDC Diagnostic Standards
+        </div>
+      </div>
 
       {/* Main Content Layout */}
       <main className="space-y-8">

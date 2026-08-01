@@ -1,23 +1,5 @@
 import { useId, type FormEvent } from "react";
-
-const PRESETS = [
-  {
-    label: "Select a clinical preset query...",
-    value: "",
-  },
-  {
-    label: "Dengue NSAID Hemorrhagic Risk Warning",
-    value: "A patient presents with acute onset of high fever, maculopapular rash, and severe joint pain after travel to India. What NSAID risk must be considered if this is Dengue?",
-  },
-  {
-    label: "Zika Virus Maternal-Fetal Pregnancy Screening",
-    value: "A pregnant patient in her first trimester is diagnosed with Zika virus. What fetal complications should be screened for?",
-  },
-  {
-    label: "Dengue Shock Syndrome Critical Warning Signs",
-    value: "What hematological and fluid balance changes warn of progression to Dengue Shock Syndrome (DSS)?",
-  },
-];
+import { PRESETS } from "../presets";
 
 type QueryFormProps = {
   value: string;
@@ -25,6 +7,7 @@ type QueryFormProps = {
   onChange: (value: string) => void;
   onSubmit: () => void;
   onDemo: () => void;
+  onRunLive: () => void;
 };
 
 export function QueryForm({
@@ -33,6 +16,7 @@ export function QueryForm({
   onChange,
   onSubmit,
   onDemo,
+  onRunLive,
 }: QueryFormProps) {
   const fieldId = useId();
 
@@ -84,6 +68,14 @@ export function QueryForm({
           className="rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--accent-deep)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading ? "Processing..." : "Ask X-CDS"}
+        </button>
+        <button
+          type="button"
+          onClick={onRunLive}
+          disabled={loading}
+          className="rounded-xl bg-green-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700 disabled:opacity-50"
+        >
+          Run live demo
         </button>
         <button
           type="button"
