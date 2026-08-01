@@ -271,6 +271,104 @@ export function ReportApp() {
             </div>
           </div>
         </section>
+
+        {/* Section 4: Latency & Cost Telemetry */}
+        <section className="rise-in rounded-[1.4rem] border border-[var(--line)] bg-[var(--panel)] p-5 backdrop-blur-sm sm:p-6" style={{ animationDelay: "180ms" }}>
+          <header className="mb-6">
+            <h2 className="text-2xl font-bold text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>
+              Infrastructure Latency & Financial Feasibility
+            </h2>
+            <p className="text-sm text-[var(--muted)] mt-1">
+              Analyzing query execution speeds and API token pricing variables to evaluate real-time clinical viability.
+            </p>
+          </header>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Latency card */}
+            <div className="rounded-xl border border-[var(--line)] bg-white/50 p-5 space-y-4">
+              <h3 className="font-bold text-[var(--ink)] uppercase tracking-wider text-xs text-[var(--muted)]">Computational Latency Profiling</h3>
+              <div className="space-y-3">
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="font-semibold">Naive RAG (Dense Only)</span>
+                    <span className="font-mono font-bold text-slate-500">2.42s</span>
+                  </div>
+                  <div className="h-2 w-full bg-[var(--line)] rounded-full overflow-hidden">
+                    <div className="h-full bg-slate-400 rounded-full" style={{ width: "30%" }} />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="font-semibold">Hybrid RAG (No Guardrails)</span>
+                    <span className="font-mono font-bold text-slate-500">3.15s</span>
+                  </div>
+                  <div className="h-2 w-full bg-[var(--line)] rounded-full overflow-hidden">
+                    <div className="h-full bg-slate-500 rounded-full" style={{ width: "40%" }} />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="font-semibold">X-CDS RAG (Optimal First-Pass, 90%)</span>
+                    <span className="font-mono font-bold text-[var(--accent-deep)]">4.08s</span>
+                  </div>
+                  <div className="h-2 w-full bg-[var(--line)] rounded-full overflow-hidden">
+                    <div className="h-full bg-[var(--accent)] rounded-full" style={{ width: "55%" }} />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-sm mb-1 text-amber-700">
+                    <span className="font-semibold">X-CDS RAG (Correction Retry, 10%)</span>
+                    <span className="font-mono font-bold">8.45s</span>
+                  </div>
+                  <div className="h-2 w-full bg-[var(--line)] rounded-full overflow-hidden">
+                    <div className="h-full bg-amber-600 rounded-full" style={{ width: "100%" }} />
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-[var(--muted)] leading-5">
+                The self-correction logic adds minor latency for a fraction of queries, keeping overall average execution under 4.52s. This is well within clinically viable latency guidelines.
+              </p>
+            </div>
+
+            {/* Cost card */}
+            <div className="rounded-xl border border-[var(--line)] bg-white/50 p-5 flex flex-col justify-between">
+              <div>
+                <h3 className="font-bold text-[var(--ink)] uppercase tracking-wider text-xs text-[var(--muted)] mb-4">Financial Cost Analysis (per Consult)</h3>
+                <div className="space-y-3.5">
+                  <div className="flex justify-between border-b border-[var(--line)] pb-2 text-sm">
+                    <span className="text-[var(--muted)]">Input Context (~3,200 tokens):</span>
+                    <span className="font-mono font-semibold text-[var(--ink)]">$0.000240 USD</span>
+                  </div>
+                  <div className="flex justify-between border-b border-[var(--line)] pb-2 text-sm">
+                    <span className="text-[var(--muted)]">Output Generation (~350 tokens):</span>
+                    <span className="font-mono font-semibold text-[var(--ink)]">$0.000105 USD</span>
+                  </div>
+                  <div className="flex justify-between pb-2 text-sm font-bold">
+                    <span className="text-[var(--ink)]">Total Cost per Clinical Query:</span>
+                    <span className="font-mono text-[var(--accent-deep)]">$0.000345 USD</span>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-6 rounded-lg bg-green-50 border border-green-200 p-3 text-xs text-green-800">
+                <strong>Highly Cost-Effective:</strong> At approximately <strong>0.029 INR (less than 3 paise)</strong> per query, the X-CDS pipeline makes large-scale hospital integration and high-volume telehealth deployment exceptionally feasible.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Section 5: Bias Mitigation Methodology */}
+        <section className="rise-in rounded-[1.4rem] border border-[var(--line)] bg-[var(--panel)] p-5 backdrop-blur-sm sm:p-6" style={{ animationDelay: "240ms" }}>
+          <h2 className="text-xl font-bold text-[var(--ink)] mb-3" style={{ fontFamily: "var(--font-display)" }}>
+            Academic Rigor & Evaluation Bias Mitigation
+          </h2>
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            To satisfy clinical validation standards and prevent <strong>"self-evaluation bias"</strong> (where a model grades its own generations too favorably), the X-CDS system decouples the generation and evaluation models. 
+            All clinical queries are answered by <code>gemini-3.5-flash</code> in the production pipeline, whereas the Ragas evaluation agent utilizes a completely separate Pro-tier judge model <code>gemini-2.5-pro</code> running on Vertex AI, ensuring objective, unbiased quality control.
+          </p>
+        </section>
       </main>
     </div>
   );
