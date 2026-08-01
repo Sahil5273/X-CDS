@@ -11,6 +11,14 @@ class QueryRequest(BaseModel):
     """Clinical symptom or decision-support query."""
 
     query: str = Field(min_length=1, description="Free-text clinical query.")
+    cross_encoder_model_name: str | None = Field(
+        default=None,
+        description="Optional custom cross-encoder model name.",
+    )
+    citation_min_token_overlap: float | None = Field(
+        default=None,
+        description="Optional custom citation min token overlap threshold (n value).",
+    )
 
     @field_validator("query")
     @classmethod

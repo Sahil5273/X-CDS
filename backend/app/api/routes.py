@@ -36,7 +36,12 @@ async def query_xrag(
     """Execute the asynchronous X-RAG pipeline for a clinical query."""
 
     try:
-        result = await asyncio.to_thread(service.answer, payload.query)
+        result = await asyncio.to_thread(
+            service.answer,
+            payload.query,
+            cross_encoder_model_name=payload.cross_encoder_model_name,
+            citation_min_token_overlap=payload.citation_min_token_overlap,
+        )
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

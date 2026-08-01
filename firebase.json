@@ -9,6 +9,10 @@
     ],
     "rewrites": [
       {
+        "source": "/interactive",
+        "destination": "/interactive.html"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

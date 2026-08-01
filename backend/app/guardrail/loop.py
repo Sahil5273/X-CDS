@@ -21,7 +21,13 @@ class CitationGuardrailNode:
             SourceContext.model_validate(context)
             for context in list(state.get("contexts") or [])
         ]
-        result = validate_citation_alignment(answer, contexts)
+
+        # Read the dynamic validation threshold (n value) from state, falling back to settings
+        min_token_overlap = state.get("citation_min_token_overlap")
+        if min_token_overlap is None:
+            min_token_overlap = getattr(self.settings, "citation_min_token_overlap", 0.25)
+
+        result = validate_citation_alignment(answer, contexts, min_token_overlap=min_token_overlap)
 
         if result.is_valid:
             return {

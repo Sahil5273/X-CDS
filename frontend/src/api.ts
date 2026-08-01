@@ -31,11 +31,19 @@ export type QueryResponse = {
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
-export async function queryXcds(query: string): Promise<QueryResponse> {
+export async function queryXcds(
+  query: string,
+  crossEncoderModelName?: string,
+  citationMinTokenOverlap?: number
+): Promise<QueryResponse> {
   const response = await fetch(`${API_BASE}/api/v1/query`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({
+      query,
+      cross_encoder_model_name: crossEncoderModelName || undefined,
+      citation_min_token_overlap: citationMinTokenOverlap !== undefined ? citationMinTokenOverlap : undefined,
+    }),
   });
 
   if (!response.ok) {

@@ -79,15 +79,40 @@ class XRAGService:
         self.generator = generator
         self.settings = settings or get_settings()
 
-    def answer(self, query: str) -> QueryResult:
+    def answer(
+        self,
+        query: str,
+        *,
+        cross_encoder_model_name: str | None = None,
+        citation_min_token_overlap: float | None = None,
+    ) -> QueryResult:
         """Run the synchronous X-RAG pipeline for one query."""
 
         cleaned = query.strip()
         if not cleaned:
             raise ValueError("query cannot be empty")
 
-        retrieval = self.retriever.search(cleaned)
-        reranked_hits: list[RerankedHit] = list(getattr(retrieval, "reranked_hits", []))
+        # Get initial fused candidates from hybrid search
+        hybrid = self.retriever.hybrid_retriever.search(cleaned)
+
+        # Decide which reranker to use
+        reranker = self.retriever.reranker
+        if cross_encoder_model_name and cross_encoder_model_name != getattr(reranker.config, "model_name", None):
+            reranker = CrossEncoderReranker(
+                CrossEncoderConfig(
+                    model_name=cross_encoder_model_name,
+                    device=getattr(self.settings, "cross_encoder_device", "cpu"),
+                    top_k=getattr(self.settings, "rerank_top_k", 5),
+                )
+            )
+
+        # Re-rank candidates using the selected reranker
+        reranked_hits = reranker.rerank(
+            cleaned,
+            hybrid.fused_hits,
+            top_k=self.retriever.rerank_top_k,
+        )
+
         contexts = [
             SourceContext.from_reranked_hit(index, hit).model_dump()
             for index, hit in enumerate(reranked_hits, start=1)
@@ -110,7 +135,11 @@ class XRAGService:
                 error="No supporting passages were retrieved.",
             )
 
-        generation = self.generator.run(cleaned, contexts)
+        generation = self.generator.run(
+            cleaned,
+            contexts,
+            citation_min_token_overlap=citation_min_token_overlap,
+        )
         return QueryResult(
             query=cleaned,
             answer=str(generation.get("answer", "")),

@@ -58,6 +58,7 @@ class XRAGGenerationWorkflow:
         *,
         generation_attempts: int = 0,
         max_generation_attempts: int | None = None,
+        citation_min_token_overlap: float | None = None,
     ) -> dict[str, Any]:
         """Execute generation with deterministic citation verification."""
 
@@ -71,6 +72,7 @@ class XRAGGenerationWorkflow:
                     if max_generation_attempts is not None
                     else self.settings.langgraph_max_generation_attempts
                 ),
+                "citation_min_token_overlap": citation_min_token_overlap,
                 "validation_passed": False,
                 "validation_issues": [],
                 "correction_feedback": None,
