@@ -56,12 +56,20 @@ export default function App() {
               X-CDS
             </h1>
           </div>
-          <a
-            href="/interactive"
-            className="rounded-xl border border-[var(--line)] bg-white/60 px-4 py-2.5 text-xs font-semibold text-[var(--accent-deep)] transition hover:border-[var(--accent)] hover:bg-white"
-          >
-            Open RAG Playground &rarr;
-          </a>
+          <div className="flex gap-2">
+            <a
+              href="/report"
+              className="rounded-xl border border-[var(--line)] bg-white/60 px-4 py-2.5 text-xs font-semibold text-[var(--muted)] transition hover:border-[var(--accent)] hover:bg-white hover:text-[var(--accent-deep)]"
+            >
+              Evaluation Report
+            </a>
+            <a
+              href="/interactive"
+              className="rounded-xl border border-[var(--line)] bg-white/60 px-4 py-2.5 text-xs font-semibold text-[var(--accent-deep)] transition hover:border-[var(--accent)] hover:bg-white"
+            >
+              Playground &rarr;
+            </a>
+          </div>
         </div>
         <p className="mt-3 max-w-2xl text-[1.05rem] leading-7 text-[var(--muted)]">
           Clinical decision support with citation-linked evidence. Ask a symptom

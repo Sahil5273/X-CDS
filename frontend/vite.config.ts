@@ -19,6 +19,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, "index.html"),
         interactive: resolve(__dirname, "interactive.html"),
+        report: resolve(__dirname, "report.html"),
       },
     },
   },
