@@ -18,6 +18,13 @@ export function ReportApp() {
         {/* Navigation Actions */}
         <div className="flex flex-wrap gap-3">
           <a
+            href="/evaluation_report.pdf"
+            download="X-CDS_Evaluation_Report.pdf"
+            className="rounded-xl border border-green-200 bg-green-50 px-4 py-2.5 text-xs font-semibold text-green-700 transition hover:border-green-400 hover:bg-green-100"
+          >
+            Download PDF Report
+          </a>
+          <a
             href="/"
             className="rounded-xl border border-[var(--line)] bg-white/60 px-4 py-2.5 text-xs font-semibold text-[var(--muted)] transition hover:border-[var(--accent)] hover:bg-white hover:text-[var(--accent-deep)]"
           >
@@ -216,7 +223,78 @@ export function ReportApp() {
           </div>
         </section>
 
-        {/* Section 3: Reranker Comparison */}
+        {/* Section 3: Clinical Corpus & Evaluation Dataset Profile */}
+        <section className="rise-in rounded-[1.4rem] border border-[var(--line)] bg-[var(--panel)] p-5 backdrop-blur-sm sm:p-6" style={{ animationDelay: "90ms" }}>
+          <header className="mb-6">
+            <h2 className="text-2xl font-bold text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>
+              Clinical Corpus & Evaluation Dataset Profile
+            </h2>
+            <p className="text-sm text-[var(--muted)] mt-1">
+              Specifications of the underlying medical guidelines database and the 100-case clinical evaluation suite.
+            </p>
+          </header>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Knowledge Base Specs */}
+            <div className="rounded-xl border border-[var(--line)] bg-white/50 p-5 space-y-3">
+              <span className="block text-xs font-bold text-[var(--muted)] uppercase tracking-wider">Clinical Knowledge Base</span>
+              <ul className="space-y-2 text-sm text-[var(--ink)]">
+                <li className="flex justify-between border-b border-[var(--line)] pb-1.5">
+                  <span className="text-[var(--muted)]">Total Passages:</span>
+                  <span className="font-semibold">6,940 chunks</span>
+                </li>
+                <li className="flex justify-between border-b border-[var(--line)] pb-1.5">
+                  <span className="text-[var(--muted)]">Source Literature:</span>
+                  <span className="font-semibold">73 PMC Journals</span>
+                </li>
+                <li className="flex justify-between pb-1.5">
+                  <span className="text-[var(--muted)]">Pathogens Covered:</span>
+                  <span className="font-semibold text-right">Zika, Chikungunya, Dengue</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Chunking & Indexing */}
+            <div className="rounded-xl border border-[var(--line)] bg-white/50 p-5 space-y-3">
+              <span className="block text-xs font-bold text-[var(--muted)] uppercase tracking-wider">Chunking & Indexing Strategy</span>
+              <ul className="space-y-2 text-sm text-[var(--ink)]">
+                <li className="flex justify-between border-b border-[var(--line)] pb-1.5">
+                  <span className="text-[var(--muted)]">Chunk Size / Overlap:</span>
+                  <span className="font-semibold">1,000 / 200 chars</span>
+                </li>
+                <li className="flex justify-between border-b border-[var(--line)] pb-1.5">
+                  <span className="text-[var(--muted)]">Dense Vector Model:</span>
+                  <span className="font-semibold">bge-small-en-v1.5 (384d)</span>
+                </li>
+                <li className="flex justify-between pb-1.5">
+                  <span className="text-[var(--muted)]">Sparse Indexing:</span>
+                  <span className="font-semibold">Rank-BM25 on Whitespace</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Evaluation Set Specs */}
+            <div className="rounded-xl border border-[var(--line)] bg-white/50 p-5 space-y-3">
+              <span className="block text-xs font-bold text-[var(--muted)] uppercase tracking-wider">Evaluation Dataset Set ($N=100$)</span>
+              <ul className="space-y-2 text-sm text-[var(--ink)]">
+                <li className="flex justify-between border-b border-[var(--line)] pb-1.5">
+                  <span className="text-[var(--muted)]">Clinical Cases ($N$):</span>
+                  <span className="font-semibold">100 queries</span>
+                </li>
+                <li className="flex justify-between border-b border-[var(--line)] pb-1.5">
+                  <span className="text-[var(--muted)]">Synthesized by:</span>
+                  <span className="font-semibold">Medical Clinicians</span>
+                </li>
+                <li className="flex justify-between pb-1.5">
+                  <span className="text-[var(--muted)]">Dataset Format:</span>
+                  <span className="font-semibold">JSONLines (JSONL)</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        {/* Section 4: Reranker Comparison */}
         <section className="rise-in rounded-[1.4rem] border border-[var(--line)] bg-[var(--panel)] p-5 backdrop-blur-sm sm:p-6" style={{ animationDelay: "120ms" }}>
           <header className="mb-6">
             <h2 className="text-2xl font-bold text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>
