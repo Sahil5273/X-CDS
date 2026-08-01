@@ -1,0 +1,7 @@
+{
+  "metrics": {
+    "context_precision": 0.6938194444029091,
+    "context_recall": 0.6333333333333333
+  },
+  "model": "BAAI/bge-reranker-v2-m3"
+}

@@ -1,0 +1,7 @@
+{
+  "metrics": {
+    "context_precision": 0.6686111110640324,
+    "context_recall": 0.6666666666666666
+  },
+  "model": "cross-encoder/ms-marco-MiniLM-L-6-v2"
+}
