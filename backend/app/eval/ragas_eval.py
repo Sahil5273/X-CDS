@@ -102,7 +102,10 @@ def materialize_predictions(
     return materialized
 
 
-def run_ragas_evaluation(examples: Sequence[EvalExample]) -> EvalReport:
+def run_ragas_evaluation(
+    examples: Sequence[EvalExample],
+    with_answer_correctness: bool = False,
+) -> EvalReport:
     """Score answers with Ragas faithfulness / relevancy / context precision."""
 
     if not examples:
@@ -121,6 +124,11 @@ def run_ragas_evaluation(examples: Sequence[EvalExample]) -> EvalReport:
     from datasets import Dataset
     from ragas import evaluate
     from ragas.metrics import answer_relevancy, context_precision, faithfulness, context_recall
+    eval_metrics = [faithfulness, answer_relevancy, context_precision, context_recall]
+    if with_answer_correctness:
+        from ragas.metrics import answer_correctness
+        eval_metrics.append(answer_correctness)
+
     from ragas.llms import LangchainLLMWrapper
     from ragas.embeddings import LangchainEmbeddingsWrapper
     from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
@@ -161,7 +169,7 @@ def run_ragas_evaluation(examples: Sequence[EvalExample]) -> EvalReport:
 
     result = evaluate(
         dataset,
-        metrics=[faithfulness, answer_relevancy, context_precision, context_recall],
+        metrics=eval_metrics,
         llm=evaluator_llm,
         embeddings=evaluator_embeddings,
         run_config=run_config,

@@ -92,6 +92,36 @@ export function ReportApp() {
             </div>
           </div>
 
+          {/* Pipeline Telemetry Cards */}
+          <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-3 mb-6">
+            <div className="rounded-2xl border border-[var(--line)] bg-white/50 p-5">
+              <span className="block text-xs font-bold text-[var(--muted)] uppercase tracking-wider">Mean Generation Attempts</span>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold text-[var(--ink)]">1.10</span>
+                <span className="text-sm font-semibold text-slate-500">attempts</span>
+              </div>
+              <p className="mt-1 text-xs text-[var(--muted)]">Average loops per query (Naive: 1.0, Hybrid: 1.0).</p>
+            </div>
+
+            <div className="rounded-2xl border border-[var(--line)] bg-white/50 p-5">
+              <span className="block text-xs font-bold text-[var(--muted)] uppercase tracking-wider">First-Pass Validation Rate</span>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold text-[var(--ink)]">90.0%</span>
+                <span className="text-sm font-semibold text-green-600">pass</span>
+              </div>
+              <p className="mt-1 text-xs text-[var(--muted)]">Percent of queries passing guardrails on attempt 1 (Baselines: N/A).</p>
+            </div>
+
+            <div className="rounded-2xl border border-[var(--line)] bg-white/50 p-5">
+              <span className="block text-xs font-bold text-[var(--muted)] uppercase tracking-wider">Clinical Abstention Rate</span>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold text-[var(--ink)]">14.0%</span>
+                <span className="text-sm font-semibold text-amber-600">refusal</span>
+              </div>
+              <p className="mt-1 text-xs text-[var(--muted)]">Unresolved queries safely aborted (Naive: 10.0%, Hybrid: 12.0%).</p>
+            </div>
+          </div>
+
           {/* Detailed table */}
           <div className="overflow-x-auto rounded-xl border border-[var(--line)] bg-white/30">
             <table className="w-full border-collapse text-left text-sm text-[var(--ink)]">
@@ -141,6 +171,9 @@ export function ReportApp() {
               </tbody>
             </table>
           </div>
+          <p className="mt-3 text-xs text-[var(--muted)] leading-5 italic">
+            * Per-case faithfulness improved on <strong>23/100</strong> queries vs Naive RAG (60 tied, 17 worse; Wilcoxon p = 0.1236, not statistically significant at &alpha; = 0.05). Full statistical details are available in the IEEE manuscript PDF.
+          </p>
         </section>
 
         {/* Section 2: Parametric Threshold Sweep */}
@@ -350,7 +383,7 @@ export function ReportApp() {
           </div>
         </section>
 
-        {/* Section 4: Latency & Cost Telemetry */}
+        {/* Section 5: Infrastructure Latency & Financial Feasibility */}
         <section className="rise-in rounded-[1.4rem] border border-[var(--line)] bg-[var(--panel)] p-5 backdrop-blur-sm sm:p-6" style={{ animationDelay: "180ms" }}>
           <header className="mb-6">
             <h2 className="text-2xl font-bold text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>
@@ -437,7 +470,7 @@ export function ReportApp() {
           </div>
         </section>
 
-        {/* Section 5: Bias Mitigation Methodology */}
+        {/* Section 6: Bias Mitigation Methodology */}
         <section className="rise-in rounded-[1.4rem] border border-[var(--line)] bg-[var(--panel)] p-5 backdrop-blur-sm sm:p-6" style={{ animationDelay: "240ms" }}>
           <h2 className="text-xl font-bold text-[var(--ink)] mb-3" style={{ fontFamily: "var(--font-display)" }}>
             Academic Rigor & Evaluation Bias Mitigation

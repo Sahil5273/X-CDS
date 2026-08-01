@@ -21,6 +21,9 @@ The benchmarks in the paper are derived from the following persistent JSON logs 
 *   `data/naive_ragas_report.json` — Evaluator report for the **Naive RAG** baseline (Dense embeddings only, no re-ranking, no guardrails).
 *   `data/baseline_ragas_report.json` — Evaluator report for the **Hybrid RAG** baseline (Sparse BM25 + Dense Chroma + RRF + MiniLM re-ranking, no guardrails).
 *   `data/ragas_report_t10.json` — Evaluator report for **X-CDS RAG** at the optimal safety default ($T_{min}=0.10$).
+*   `data/guardrail_metrics_summary.json` — Aggregated pipeline telemetry metrics (generation loops, abstention rates, mean citations).
+*   `data/high_risk_safety_subset.json` — Domain safety proxy evaluation logs over 12 curated clinical scenarios.
+*   `data/faithfulness_wilcoxon_summary.json` — Wilcoxon signed-rank significance outputs comparing faithfulness scores.
 
 ---
 
@@ -34,6 +37,12 @@ python scripts/evaluate_baseline.py
 
 # 2. Reproduce X-CDS RAG Metrics (Table I Column 3 & Table II Peak row)
 python scripts/evaluate_ragas.py --use-pipeline
+
+# 3. Reproduce Wilcoxon statistics and Pipeline metrics (Table IV)
+python -m scripts.compute_faithfulness_stats
+
+# 4. Reproduce High-Risk Safety Proxy Metrics JSON log
+python -m scripts.curate_safety_subset
 ```
 
 ---
