@@ -15,6 +15,7 @@ export type ContextChunk = {
   pmcid?: string;
   section?: string;
   source_url?: string;
+  score?: number;
 };
 
 export type QueryResponse = {

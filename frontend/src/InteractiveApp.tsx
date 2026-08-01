@@ -63,12 +63,22 @@ export function InteractiveApp() {
     <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       {/* Header */}
       <header className="rise-in mb-6 lg:mb-8">
-        <p className="mb-2 text-sm font-medium tracking-[0.18em] text-[var(--accent-deep)] uppercase">
-          X-CDS Playground
-        </p>
-        <h1 className="text-[clamp(2.6rem,7vw,4.6rem)] leading-[0.95] text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>
-          Interactive RAG
-        </h1>
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="mb-2 text-sm font-medium tracking-[0.18em] text-[var(--accent-deep)] uppercase">
+              X-CDS Playground
+            </p>
+            <h1 className="text-[clamp(2.6rem,7vw,4.6rem)] leading-[0.95] text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>
+              Interactive RAG
+            </h1>
+          </div>
+          <a
+            href="/"
+            className="rounded-xl border border-[var(--line)] bg-white/60 px-4 py-2.5 text-xs font-semibold text-[var(--muted)] transition hover:border-[var(--accent)] hover:bg-white hover:text-[var(--accent-deep)]"
+          >
+            &larr; Back to Clinical Portal
+          </a>
+        </div>
         <p className="mt-3 max-w-2xl text-[1.05rem] leading-7 text-[var(--muted)]">
           Experiment with different rerankers and citation validation thresholds (n values) in real-time.
         </p>
@@ -292,7 +302,22 @@ export function InteractiveApp() {
                             </span>
                           )}
                         </div>
+                        {context.score !== undefined && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[0.7rem] font-bold text-[var(--muted)] uppercase tracking-wider">Match:</span>
+                            <span className="text-xs font-bold text-[var(--accent-deep)]">{(context.score * 100).toFixed(1)}%</span>
+                          </div>
+                        )}
                       </header>
+                      
+                      {context.score !== undefined && (
+                        <div className="mb-3 h-1 w-full rounded-full bg-[var(--line)] overflow-hidden">
+                          <div
+                            className="h-full bg-[var(--accent)]"
+                            style={{ width: `${Math.max(0, Math.min(100, context.score * 100))}%` }}
+                          />
+                        </div>
+                      )}
                       
                       <p className="text-[0.95rem] leading-7 text-[var(--ink)]">
                         {context.text}

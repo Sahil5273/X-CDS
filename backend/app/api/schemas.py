@@ -46,6 +46,7 @@ class ContextResponse(BaseModel):
     pmcid: str = ""
     section: str = ""
     source_url: str = ""
+    score: float = 0.0
 
 
 class QueryResponse(BaseModel):

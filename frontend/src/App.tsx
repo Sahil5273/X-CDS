@@ -44,15 +44,25 @@ export default function App() {
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <header className="rise-in mb-6 lg:mb-8">
-        <p className="mb-2 text-sm font-medium tracking-[0.18em] text-[var(--accent-deep)] uppercase">
-          Explainable RAG
-        </p>
-        <h1
-          className="text-[clamp(2.6rem,7vw,4.6rem)] leading-[0.95] text-[var(--ink)]"
-          style={{ fontFamily: "var(--font-display)" }}
-        >
-          X-CDS
-        </h1>
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="mb-2 text-sm font-medium tracking-[0.18em] text-[var(--accent-deep)] uppercase">
+              Explainable RAG
+            </p>
+            <h1
+              className="text-[clamp(2.6rem,7vw,4.6rem)] leading-[0.95] text-[var(--ink)]"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              X-CDS
+            </h1>
+          </div>
+          <a
+            href="/interactive"
+            className="rounded-xl border border-[var(--line)] bg-white/60 px-4 py-2.5 text-xs font-semibold text-[var(--accent-deep)] transition hover:border-[var(--accent)] hover:bg-white"
+          >
+            Open RAG Playground &rarr;
+          </a>
+        </div>
         <p className="mt-3 max-w-2xl text-[1.05rem] leading-7 text-[var(--muted)]">
           Clinical decision support with citation-linked evidence. Ask a symptom
           question, then click citation numbers to inspect their source chunks.

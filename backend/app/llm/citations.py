@@ -20,6 +20,7 @@ class SourceContext(BaseModel):
     pmcid: str = ""
     section: str = ""
     source_url: str = ""
+    score: float = 0.0
 
     @classmethod
     def from_reranked_hit(cls, index: int, hit: Any) -> SourceContext:
@@ -31,6 +32,7 @@ class SourceContext(BaseModel):
             pmcid=str(metadata.get("pmcid", "")),
             section=str(metadata.get("section", "")),
             source_url=str(metadata.get("source_url", "")),
+            score=float(getattr(hit, "score", 0.0)),
         )
 
 
