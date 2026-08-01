@@ -254,7 +254,7 @@ To optimize top-k context selection, we compared our baseline reranker (`ms-marc
 ---
 
 ## VII. Conclusion
-We introduced **X-CDS**, an explainable clinical decision support framework that mitigates LLM hallucinations. By combining hybrid retrieval (ChromaDB + BM25) with a stateful LangGraph self-correction loop, X-CDS programmatically ensures that all diagnostic or therapeutic suggestions have verified, verifiable origins in medical literature. Ragas evaluation on a large clinical dataset confirms that X-CDS consistently outperforms the baseline, achieving extremely high model faithfulness and robust context recall, offering a structured framework that aims to improve citation verification and mitigate hallucinations for LLMs in clinical decision support environments.
+We introduced **X-CDS**, an explainable clinical decision support framework that mitigates LLM hallucinations. By combining hybrid retrieval (ChromaDB + BM25) with a stateful LangGraph self-correction loop, X-CDS aims to programmatically verify that diagnostic or therapeutic suggestions have verified, verifiable origins in medical literature. Ragas evaluation on a large clinical dataset confirms that X-CDS consistently outperforms the baseline, achieving extremely high model faithfulness and robust context recall, offering a structured framework that aims to improve citation verification and mitigate hallucinations for LLMs in clinical decision support environments.
 
 ---
 
