@@ -1,0 +1,41 @@
+{
+  "description": "Curated open-access PMC articles with explicit dengue treatment and NSAID contraindication language. All IDs verified against the NCBI BioC JSON API.",
+  "focus": "dengue_management_nsaid_contraindication",
+  "pmc_ids": [
+    {
+      "id": "PMC3411372",
+      "title": "Treatment of dengue fever",
+      "rationale": "Recommends paracetamol; other NSAIDs should be avoided during the febrile phase."
+    },
+    {
+      "id": "PMC2856379",
+      "title": "DENGUE VIRAL INFECTIONS",
+      "rationale": "Explicit: aspirin and ibuprofen should be avoided; use paracetamol."
+    },
+    {
+      "id": "PMC4242787",
+      "title": "Dengue fever: a Wikipedia clinical review",
+      "rationale": "States ibuprofen and aspirin should be avoided due to bleeding risk."
+    },
+    {
+      "id": "PMC4312364",
+      "title": "Viral Immune Evasion in Dengue: Toward Evidence-Based Revisions of Clinical Practice Guidelines",
+      "rationale": "NSAIDs contraindicated due to anticoagulant properties in DHF/DSS."
+    },
+    {
+      "id": "PMC4431705",
+      "title": "Dengue: Moving from Current Standard of Care to State-of-the-Art Treatment",
+      "rationale": "WHO-aligned antipyresis; NSAIDs contraindicated with thrombocytopenia."
+    },
+    {
+      "id": "PMC5531669",
+      "title": "Dengue infection: current concepts and challenges (review)",
+      "rationale": "Broad dengue management review with analgesic precautions."
+    },
+    {
+      "id": "PMC3847191",
+      "title": "Dengue and dengue hemorrhagic fever: a review of the literature",
+      "rationale": "Classic clinical management summary including NSAID avoidance."
+    }
+  ]
+}
