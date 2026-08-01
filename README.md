@@ -283,7 +283,7 @@ Start-Process "docs/evaluation_dashboard.html"
 
 ### Project Billing & Feasibility Analysis
 * **Development/Evaluation Cost (One-time):** **₹10,896.38 INR ($131.28 USD)** for the entire 600-case threshold sweep benchmarking suite. Ragas evaluation via Pro-tier judges (`gemini-2.5-pro`) accounts for ~80% of this cost.
-* **Production Run Cost (Operational):** **~₹0.014 INR ($0.00017 USD) per query**. Real-time queries run on `gemini-3.5-flash` with local index retrieval (free CPU/GPU), making it highly economical for live clinical deployments.
+* **Production Run Cost (Operational):** **~₹0.029 INR ($0.000345 USD) per query**. Real-time queries run on `gemini-3.5-flash` with local index retrieval (free CPU/GPU), making it highly economical for live clinical deployments.
 
 ## End-to-end smoke test
 
