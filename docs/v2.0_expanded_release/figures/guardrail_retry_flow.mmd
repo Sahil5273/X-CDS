@@ -1,0 +1,8 @@
+graph TD
+    A[Initial Generation] --> B[Check Overlap Ratio]
+    B --> C{Overlap >= 0.10?}
+    C -- Yes --> D[Accept Response]
+    C -- No --> E[Extract Mismatched Claim]
+    E --> F[Generate Correction Prompt]
+    F --> G[Re-Generate and Re-Evaluate]
+    G --> B

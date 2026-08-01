@@ -1,0 +1,11 @@
+graph TD
+    A[Clinical Query] --> B[Hybrid Search: Dense + Sparse]
+    B --> C[Reciprocal Rank Fusion (RRF)]
+    C --> D[Cross-Encoder Re-ranker]
+    D --> E[Top-K Clinical Chunks]
+    E --> F[LangGraph Orchestrator]
+    F --> G[Gemini Generation Node]
+    G --> H{Citation Overlap Validator}
+    H -- Fail: Overlap < 0.10 --> I[State Correction feedback]
+    I --> G
+    H -- Pass: Overlap >= 0.10 --> J[Output to Web Dashboard]

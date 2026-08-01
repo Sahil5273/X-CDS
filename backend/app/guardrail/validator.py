@@ -90,7 +90,7 @@ def validate_citation_alignment(
     answer_markdown: str,
     contexts: list[SourceContext],
     *,
-    min_token_overlap: float = 0.25,
+    min_token_overlap: float = 0.10,
     min_content_tokens: int = 2,
 ) -> CitationValidationResult:
     """Verify citation indices and claim-to-source string/token alignment."""

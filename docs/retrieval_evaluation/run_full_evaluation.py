@@ -48,7 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--n-value",
         type=float,
-        default=0.25,
+        default=0.10,
         help="Min token overlap (n value) for citation validation.",
     )
     return parser

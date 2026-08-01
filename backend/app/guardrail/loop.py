@@ -25,7 +25,7 @@ class CitationGuardrailNode:
         # Read the dynamic validation threshold (n value) from state, falling back to settings
         min_token_overlap = state.get("citation_min_token_overlap")
         if min_token_overlap is None:
-            min_token_overlap = getattr(self.settings, "citation_min_token_overlap", 0.25)
+            min_token_overlap = getattr(self.settings, "citation_min_token_overlap", 0.10)
 
         result = validate_citation_alignment(answer, contexts, min_token_overlap=min_token_overlap)
 

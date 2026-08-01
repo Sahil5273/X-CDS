@@ -1,6 +1,6 @@
 # Explainable Clinical Decision Support (X-CDS): Mitigating LLM Hallucinations in High-Stakes Medicine via Hybrid Retrieval and Deterministic Citation Verification Frameworks
 
-**Submitted by:** Sahil Kumar  
+**Author:** Sahil Kumar  
 **Registration Number:** 23BAI10224  
 **Affiliation:** School of Computer Science and Engineering (SCSE), VIT Bhopal University  
 **Advisor:** Dr. Abdul Rahman, Associate Professor  
@@ -10,16 +10,18 @@
 ## Abstract
 Large Language Models (LLMs) show significant promise in clinical decision support systems (CDSS). However, the propensity of generative models to "hallucinate"—generate medically incorrect or unsubstantiated claims—remains a critical barrier to clinical deployment. This paper introduces **Explainable Clinical Decision Support (X-CDS)**, an architecture designed to improve the automated faithfulness of clinical recommendations via deterministic citation verification. X-CDS integrates a **Hybrid Retrieval** pipeline (ChromaDB Vector Search and BM25 Keyword Search) merged via **Reciprocal Rank Fusion (RRF)** and filtered through a **Cross-Encoder Re-ranker**. To mitigate hallucinations, we implement a stateful **LangGraph** orchestration loop that programmatically validates generative assertions against retrieved source passages using a token-overlap alignment threshold. If the generator fails validation, the state machine routes the failure back for iterative self-correction. We evaluate the system using the **Ragas** benchmarking framework against a clinical dataset, measuring Faithfulness, Answer Relevancy, Context Precision, and Context Recall. Our results demonstrate that deterministic citation guardrails significantly improve model faithfulness compared to standard RAG baselines, demonstrating the value of structured self-correction loops for safety-critical clinical applications.
 
+**Index Terms—** clinical decision support, retrieval-augmented generation, hallucination mitigation, citation verification, arbovirus diagnostics, LangGraph state machine.
+
 ---
 
 ## I. Introduction
-The deployment of Large Language Models (LLMs) such as GPT-4 and Gemini in clinical settings has demonstrated their potential to assist clinicians with diagnostic suggestions, literature summaries, and treatment plan generation. Despite these capabilities, generative models are fundamentally statistical next-token predictors. Consequently, they suffer from the "hallucination" phenomenon—generating logical-sounding but factual fabrications. In high-stakes clinical settings, an unsubstantiated treatment or diagnostic suggestion can lead to severe adverse patient outcomes.
+The deployment of Large Language Models (LLMs) in clinical settings has demonstrated their potential to assist clinicians with diagnostic suggestions, literature summaries, and treatment plan generation. Despite these capabilities, generative models are fundamentally statistical next-token predictors. Consequently, they suffer from the "hallucination" phenomenon—generating logical-sounding but factual fabrications. In high-stakes clinical settings, an unsubstantiated treatment or diagnostic suggestion can lead to severe adverse patient outcomes.
 
 ### The Arbovirus Differential Diagnosis Dilemma
 To evaluate X-CDS in a highly challenging and clinically realistic scenario, we focus on emerging arboviruses: **Zika, Dengue, Chikungunya, and West Nile Virus**. Differentiating these pathogens represents a classic diagnostic challenge in tropical medicine due to their overlapping acute presentations (fever, rash, and joint pain). 
 
 However, misdiagnosis carries extreme clinical risk:
-* A patient presenting with severe joint pain may be diagnosed with Chikungunya and prescribed non-steroidal anti-inflammatory drugs (NSAIDs) like Aspirin or Ibuprofen for pain relief.
+* A patient presenting with severe joint pain may be diagnosed with Chikungunya and prescribed non-steroidal anti-inflammatory drugs (NSAIDs) like Ibuprofen for pain relief.
 * If the patient actually has Dengue, administering NSAIDs can impair platelet function and trigger severe, potentially fatal internal hemorrhages (Dengue Hemorrhagic Fever).
 * Similarly, misdiagnosing Zika in pregnant patients can lead to missed screening opportunities for microcephaly and Congenital Zika Syndrome (CZS).
 
@@ -39,35 +41,26 @@ To address these vulnerabilities, we present the **X-CDS** framework. The primar
 ### A. Clinical RAG and Medical QA Systems
 Retrieval-Augmented Generation (RAG) has emerged as a key paradigm to ground Large Language Models (LLMs) in clinical knowledge bases [1]. In medical Question Answering (QA) tasks, such as those evaluated on the BioASQ [2] and MedQA [3] benchmarks, standard RAG systems ingest medical textbooks, literature, and guidelines to supplement prompt contexts. However, standard clinical RAG architectures frequently fail to differentiate critical clinical specifics in overlapping infectious disease profiles, leading to retrieval failures or miscontextualization of guidelines [4].
 
-### B. Citation Grounding and Stateful RAG Guardrails
+### B. Citation Grounding and Attribution Frameworks
 To verify that generated text is faithful to retrieved contexts, researchers have turned to citation grounding and attribution frameworks. Techniques such as Self-RAG train or prompt models to output self-reflection tokens indicating when retrieval is necessary and whether generated responses are supported by the retrieved contexts [5]. Other approaches utilize post-hoc natural language inference (NLI) models to evaluate sentence-level support [6]. However, stateful guardrails using orchestrators like LangGraph offer a way to programmatically check citation alignment at runtime and route failed checks back for iterative correction, establishing a self-improving generation loop [7].
 
-### C. Hallucination Mitigation in Healthcare LLMs
+### C. Hallucination Mitigation in Clinical AI
 Hallucination mitigation in clinical settings is a high-priority research domain, given the safety-critical nature of clinical recommendations. Mitigation strategies range from domain-specific fine-tuning (e.g., Med-PaLM) to structural prompting guardrails [8]. Despite these advances, clinical models still risk synthesizing unsubstantiated claims or omitting citations for key diagnostic warnings [9]. X-CDS addresses this by introducing a deterministic, character-level token-overlap alignment threshold as a programmatic safety layer, ensuring all clinical claims are strictly anchored to source passages before being output to clinicians [10].
 
 ---
 
-## III. System Architecture and Methodology
+## III. System Architecture
 
-```mermaid
-graph TD
-    A[Clinical Query] --> B[Hybrid Search: Dense + Sparse]
-    B --> C[Reciprocal Rank Fusion (RRF)]
-    C --> D[Cross-Encoder Re-ranker]
-    D --> E[Top-K Clinical Chunks]
-    E --> F[LangGraph Orchestrator]
-    F --> G[Gemini Generation Node]
-    G --> H{Citation Overlap Validator}
-    H -- Fail: Overlap < 0.10 --> I[State Correction feedback]
-    I --> G
-    H -- Pass: Overlap >= 0.10 --> J[Output to Web Dashboard]
 ```
+[Insert Figure 1 here]
+```
+**Fig. 1.** System architecture diagram for the X-CDS pipeline, illustrating the flow from clinical query ingestion, hybrid vector/sparse retrieval, cross-encoder re-ranking, to stateful LangGraph generation and citation validation nodes.
 
 ### A. Data Ingestion & WHO Guidelines
 Clinical literature is ingested via the NIH BioC API. To establish a standardized "Ground Truth" for clinical decision support, our reference database incorporates the official **World Health Organization (WHO) and Pan American Health Organization (PAHO) guidelines** for the clinical diagnosis, treatment, and control of arboviral diseases (e.g., `PMC7114207` and `PMC8439978`). These guidelines provide standardized classification tables (e.g., differentiating Dengue with or without warning signs from Severe Dengue) that serve as explicit facts during retrieval.
 
 ### B. Chunking Strategy Rationale
-The division of source documents into chunks is a critical parameter in RAG architectures, impacting both retrieval recall and generation citation alignment. While quantitative ablation of different chunking strategies (e.g., fixed-length token chunking, semantic chunking, or proposition chunking) remains future work, **Semantic Chunking** was selected for X-CDS based on structural design rationale. Text is split by monitoring the cosine distance of embeddings between consecutive sentences, starting a new chunk when semantic shifts exceed the 95th percentile. By preserving cohesive clinical concepts within single paragraphs, this strategy ensures that cited claims mapped to a chunk maintain high verbatim overlap with the source paragraph, which is crucial for our token-overlap guardrail validator.
+The division of source documents into chunks is a critical parameter in RAG architectures, impacting both retrieval recall and generation citation alignment. While quantitative ablation of different chunking strategies remains future work, **Semantic Chunking** was selected for X-CDS based on structural design rationale. Text is split by monitoring the cosine distance of embeddings between consecutive sentences, starting a new chunk when semantic shifts exceed the 95th percentile. By preserving cohesive clinical concepts within single paragraphs, this strategy ensures that cited claims mapped to a chunk maintain high verbatim overlap with the source paragraph, which is crucial for our token-overlap guardrail validator.
 
 ### C. Hybrid Retrieval Pipeline
 To capture both semantic concepts and specific clinical terminology (e.g., drug names, gene variants), we implement a dual-channel retrieval system:
@@ -95,6 +88,11 @@ The orchestration is implemented as a stateful graph using LangGraph. The graph 
 \[Overlap(S_{claim}, S_{source}) = \frac{|T(S_{claim}) \cap T(S_{source})|}{|T(S_{claim})|}\]
 
 where $T(S)$ denotes the set of alphanumeric tokens in sentence $S$. If the overlap is below the threshold $T_{min} = 0.10$, the validator marks `validation_passed = False`, compiles error logs, and routes the state back to the generator node for a self-correction attempt.
+
+```
+[Insert Figure 2 here]
+```
+**Fig. 2.** Execution graph for the citation guardrail node, showing the self-correction retry feedback loop when a generated claim fails the minimum token overlap threshold $T_{min}$.
 
 ---
 
@@ -125,7 +123,7 @@ Evaluation is performed using the **Ragas** framework, utilizing `ChatGoogleGene
 
 ---
 
-## V. Results and Discussion
+## V. Results & Discussion
 
 ### A. Ragas Benchmark Performance
 The pipeline was evaluated against a large, domain-specific dataset of $N=100$ complex clinical queries focused on Zika virus pathobiology, maternal-fetal transmission, Dengue complications, and Chikungunya symptoms. We performed a comparative evaluation between three distinct RAG architectures: Naive RAG (dense vector search only, no re-ranking, no guardrails), Hybrid RAG (sparse BM25 + dense Chroma + RRF + Cross-Encoder re-ranking, but no guardrails), and X-CDS RAG (our full pipeline with LangGraph self-correction).
@@ -170,7 +168,6 @@ To analyze the exact failure modes and safety benefits of X-CDS at the individua
 **TABLE III: Tagged Qualitative Error Analysis Cases ($N=15$)**
 | Case ID | Primary Category | Query Focus | Analysis & Resolution |
 | :---: | :---: | :--- | :--- |
-| Case 1 | Correct Abstention | Zika NPC targets / apoptosis mechanism | Retrieval missed Hofbauer cells. Model output "insufficient evidence," avoiding hallucination. |
 | Case 2 | High-Risk Scenario | CHIKV neurological complications | Correctly identified Encephalitis as primary complication with citations [2]. |
 | Case 4 | Retrieval Miss | Zika transplacental target cell types | Ground-truth cell type (Hofbauer cell) was not in context. Correctly abstained. |
 | Case 5 | High-Risk Scenario | Severe Dengue warning signs & DSS | Successfully flagged thrombocytopenia and hematocrit increase from context [1]. |
@@ -195,8 +192,8 @@ To analyze the exact failure modes and safety benefits of X-CDS at the individua
     > *   **Hematological Changes:** An increase in hematocrit (HCT) concurrent with a rapid decrease in platelet count [1], as well as thrombocytopenia [3].
     > *   **Fluid Balance Changes:** Clinical fluid accumulation [1] and the rapid onset of capillary leakage [3], which can lead to severe plasma leakage and shock (DSS) [1].
 
-#### Vignette 2: Safe Failure / Abstention (Zika Placental Trojan Horse Target)
-*   **Clinical Scenario:** Regarding the transplacental transmission of Zika virus, what specific placental cell type is considered a primary target and potential "Trojan horse" for viral dissemination to the fetus, and what is the function of these cells?
+#### Vignette 2: Safe Failure / Correct Abstention (Zika Transplacental Target)
+*   **Clinical Scenario:** A research fellow asks: What specific placental cell type is considered the primary target or "Trojan horse" for Zika virus dissemination, and what is its main function?
 *   **X-CDS Response:**
     > Based on the provided passages, there is insufficient evidence to identify the specific placental cell type considered a primary target or "Trojan horse" for Zika virus dissemination, or to describe its function.
     >

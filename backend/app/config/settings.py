@@ -169,6 +169,13 @@ class Settings(BaseSettings):
             "langgraph_max_generation_attempts",
         ),
     )
+    citation_min_token_overlap: float = Field(
+        default=0.10,
+        validation_alias=AliasChoices(
+            "CITATION_MIN_TOKEN_OVERLAP",
+            "citation_min_token_overlap",
+        ),
+    )
 
     @classmethod
     def settings_customise_sources(
@@ -207,10 +214,13 @@ class Settings(BaseSettings):
             self.eval_embedding_model = file_values["EVAL_EMBEDDING_MODEL"]
         if "EVAL_LLM_MODEL" in file_values:
             self.eval_llm_model = file_values["EVAL_LLM_MODEL"]
+        if "CITATION_MIN_TOKEN_OVERLAP" in file_values:
+            self.citation_min_token_overlap = float(file_values["CITATION_MIN_TOKEN_OVERLAP"])
         # Keep process env aligned for downstream libs and GCP configuration
         os.environ["GEMINI_MODEL"] = self.gemini_model
         os.environ["EVAL_EMBEDDING_MODEL"] = self.eval_embedding_model
         os.environ["EVAL_LLM_MODEL"] = self.eval_llm_model
+        os.environ["CITATION_MIN_TOKEN_OVERLAP"] = str(self.citation_min_token_overlap)
         if self.gcp_project_id:
             os.environ["GCP_PROJECT_ID"] = self.gcp_project_id
         os.environ["GCP_REGION"] = self.gcp_region

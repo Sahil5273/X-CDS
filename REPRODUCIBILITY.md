@@ -58,7 +58,7 @@ CROSS_ENCODER_MODEL_NAME=cross-encoder/ms-marco-MiniLM-L-6-v2
 ### A. Quick 3-Case Smoke Test Run
 To run a fast, low-cost verification of the entire evaluation pipeline (RAG generation + Ragas scoring) for both rerankers:
 ```powershell
-.venv\Scripts\python.exe docs/retrieval_evaluation/run_full_evaluation.py --limit 3 --n-value 0.25
+.venv\Scripts\python.exe docs/retrieval_evaluation/run_full_evaluation.py --limit 3 --n-value 0.10
 ```
 *Expected execution time: ~1.5 minutes. Generates `docs/retrieval_evaluation/evaluation_summary_report_3.md`.*
 

@@ -197,7 +197,7 @@ export default function App() {
               {result && (
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] text-[var(--muted)] bg-white/60 px-2 py-0.5 rounded border border-[var(--line)] font-semibold">
-                    Gemini-2.5-Flash
+                    Gemini-3.5-Flash
                   </span>
                   <span className="text-[10px] tracking-wide text-[var(--muted)] uppercase font-semibold">
                     {result.validation_passed ? "Citations verified" : "Needs review"}
