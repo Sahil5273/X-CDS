@@ -4,6 +4,7 @@ import type { QueryResponse } from "./api";
 import { AnswerPanel } from "./components/AnswerPanel";
 import { EvidencePanel } from "./components/EvidencePanel";
 import { PRESETS } from "./presets";
+import { GuidedTour, type TourStep } from "./components/GuidedTour";
 
 // Reranker model options
 const MODEL_OPTIONS = [
@@ -24,6 +25,47 @@ export function InteractiveApp() {
   const [nValue, setNValue] = useState(0.25);
 
   const [autoSubmit, setAutoSubmit] = useState(true);
+  const [tourActive, setTourActive] = useState(false);
+
+  const TOUR_STEPS: TourStep[] = [
+    {
+      targetId: "tour-interactive-header",
+      title: "Welcome to X-CDS Playground!",
+      description: "Here you can customize RAG settings, choose the reranking model, and adjust citation verification strictness.",
+    },
+    {
+      targetId: "tour-interactive-config",
+      title: "Parameters Configuration",
+      description: "Choose the reranking model and modify the Min Token Overlap ($T_{min}$). Higher overlap values enforce strict citation check iterations.",
+    },
+    {
+      targetId: "tour-interactive-query",
+      title: "Symptom & Preset Selection",
+      description: "Select standard clinical preset questions or write custom queries. The 'Auto-submit' toggle lets you run the demo query instantly.",
+    },
+    {
+      targetId: "tour-interactive-telemetry",
+      title: "Self-Correction & Refusal Telemetry",
+      description: "Audits the execution pipeline in real-time. Highlights validation attempts, first-pass validation status, and clinical abstention.",
+    },
+    {
+      targetId: "tour-interactive-answer",
+      title: "Attributed Diagnostic Answer",
+      description: "Outputs the generated clinical guidelines response, marked with active citation brackets pointing to the source passages.",
+    },
+    {
+      targetId: "tour-interactive-evidence",
+      title: "Retrieved Source Chunks",
+      description: "Visualizes the retrieved reference documents along with the exact semantic similarity score returned by the reranker.",
+    },
+  ];
+
+  const startTour = () => {
+    if (!response) {
+      handleDemoLoad();
+    }
+    setTourActive(true);
+  };
 
   async function runQuery(q: string, model: string, n: number) {
     setLoading(true);
@@ -79,7 +121,7 @@ export function InteractiveApp() {
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-6 sm:px-6 lg:px-8 lg:py-8 pb-16">
       {/* Header */}
-      <header className="rise-in mb-6 lg:mb-8">
+      <header id="tour-interactive-header" className="rise-in mb-6 lg:mb-8">
         <div className="flex items-start justify-between">
           <div>
             <p className="mb-2 text-sm font-medium tracking-[0.18em] text-[var(--accent-deep)] uppercase">
@@ -90,6 +132,12 @@ export function InteractiveApp() {
             </h1>
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={startTour}
+              className="rounded-xl border border-[var(--accent)] bg-[var(--highlight)] px-4 py-2.5 text-xs font-bold text-[var(--accent-deep)] transition hover:bg-[var(--accent)] hover:text-white animate-pulse"
+            >
+              ✨ Help Tour
+            </button>
             <a
               href="/"
               className="rounded-xl border border-[var(--line)] bg-white/60 px-4 py-2.5 text-xs font-semibold text-[var(--muted)] transition hover:border-[var(--accent)] hover:bg-white hover:text-[var(--accent-deep)]"
@@ -120,105 +168,109 @@ export function InteractiveApp() {
           </div>
 
           <form onSubmit={handleQuerySubmit} className="space-y-5">
-            {/* Model Selector */}
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-[var(--muted)]">
-                Cross-Encoder Reranker
-              </label>
-              <select
-                value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
-                className="w-full rounded-xl border border-[var(--line)] bg-white/70 px-4 py-2.5 text-[0.95rem] text-[var(--ink)] outline-none focus:border-[var(--accent)]"
-              >
-                {MODEL_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* N Value Slider */}
-            <div className="space-y-2">
-              <div className="flex items-baseline justify-between">
+            <div id="tour-interactive-config" className="space-y-5">
+              {/* Model Selector */}
+              <div className="space-y-2">
                 <label className="block text-sm font-semibold text-[var(--muted)]">
-                  Min Token Overlap (n value)
+                  Cross-Encoder Reranker
                 </label>
-                <span className="text-sm font-bold text-[var(--accent-deep)]">{nValue.toFixed(2)}</span>
+                <select
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                  className="w-full rounded-xl border border-[var(--line)] bg-white/70 px-4 py-2.5 text-[0.95rem] text-[var(--ink)] outline-none focus:border-[var(--accent)]"
+                >
+                  {MODEL_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
               </div>
-              <input
-                type="range"
-                min="0.05"
-                max="0.75"
-                step="0.05"
-                value={nValue}
-                onChange={(e) => setNValue(parseFloat(e.target.value))}
-                className="h-2 w-full cursor-pointer rounded-lg bg-[var(--line)] accent-[var(--accent)]"
-              />
-              <p className="text-xs text-[var(--muted)]">
-                Lower value is more lenient; higher value enforces stricter citation matching.
-              </p>
-            </div>
 
-            {/* Preset Selector */}
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-[var(--muted)]">
-                Clinical Presets
-              </label>
-              <select
-                onChange={(e) => {
-                  if (e.target.value) {
-                    setQuery(e.target.value);
-                  }
-                }}
-                value={PRESETS.find(p => p.value === query) ? query : ""}
-                className="w-full rounded-xl border border-[var(--line)] bg-white/70 px-4 py-2.5 text-[0.92rem] text-[var(--ink)] outline-none focus:border-[var(--accent)]"
-              >
-                {PRESETS.map((p, idx) => (
-                  <option key={idx} value={p.value}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Query Input */}
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-[var(--muted)]">
-                Symptom/Query Text
-              </label>
-              <textarea
-                className="min-h-24 w-full resize-y rounded-xl border border-[var(--line)] bg-white/70 px-4 py-3 text-[0.98rem] leading-7 text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
-                placeholder="Type your symptom or clinical question..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </div>
-
-            {/* Submit & Demo Buttons */}
-            <div className="flex flex-wrap items-center gap-3 pt-2">
-              <button
-                type="submit"
-                disabled={loading || !query.trim()}
-                className="rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--accent-deep)] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {loading ? "Processing..." : "Submit Query"}
-              </button>
-              <button
-                type="button"
-                onClick={handleDemoLoad}
-                disabled={loading}
-                className="rounded-xl border border-[var(--line)] bg-white/60 px-5 py-2.5 text-sm font-semibold text-[var(--ink)] transition hover:border-[var(--accent)] disabled:opacity-50"
-              >
-                Load Demo Setting
-              </button>
-              <label className="flex items-center gap-2 text-xs font-semibold text-[var(--muted)] cursor-pointer select-none">
+              {/* N Value Slider */}
+              <div className="space-y-2">
+                <div className="flex items-baseline justify-between">
+                  <label className="block text-sm font-semibold text-[var(--muted)]">
+                    Min Token Overlap (n value)
+                  </label>
+                  <span className="text-sm font-bold text-[var(--accent-deep)]">{nValue.toFixed(2)}</span>
+                </div>
                 <input
-                  type="checkbox"
-                  checked={autoSubmit}
-                  onChange={(e) => setAutoSubmit(e.target.checked)}
-                  className="rounded border-[var(--line)] text-[var(--accent)] focus:ring-[var(--accent)]"
+                  type="range"
+                  min="0.05"
+                  max="0.75"
+                  step="0.05"
+                  value={nValue}
+                  onChange={(e) => setNValue(parseFloat(e.target.value))}
+                  className="h-2 w-full cursor-pointer rounded-lg bg-[var(--line)] accent-[var(--accent)]"
                 />
-                Auto-submit on load
-              </label>
+                <p className="text-xs text-[var(--muted)]">
+                  Lower value is more lenient; higher value enforces stricter citation matching.
+                </p>
+              </div>
+            </div>
+
+            <div id="tour-interactive-query" className="space-y-5">
+              {/* Preset Selector */}
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-[var(--muted)]">
+                  Clinical Presets
+                </label>
+                <select
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setQuery(e.target.value);
+                    }
+                  }}
+                  value={PRESETS.find(p => p.value === query) ? query : ""}
+                  className="w-full rounded-xl border border-[var(--line)] bg-white/70 px-4 py-2.5 text-[0.92rem] text-[var(--ink)] outline-none focus:border-[var(--accent)]"
+                >
+                  {PRESETS.map((p, idx) => (
+                    <option key={idx} value={p.value}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Query Input */}
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-[var(--muted)]">
+                  Symptom/Query Text
+                </label>
+                <textarea
+                  className="min-h-24 w-full resize-y rounded-xl border border-[var(--line)] bg-white/70 px-4 py-3 text-[0.98rem] leading-7 text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
+                  placeholder="Type your symptom or clinical question..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </div>
+
+              {/* Submit & Demo Buttons */}
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={loading || !query.trim()}
+                  className="rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--accent-deep)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loading ? "Processing..." : "Submit Query"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDemoLoad}
+                  disabled={loading}
+                  className="rounded-xl border border-[var(--line)] bg-white/60 px-5 py-2.5 text-sm font-semibold text-[var(--ink)] transition hover:border-[var(--accent)] disabled:opacity-50"
+                >
+                  Load Demo Setting
+                </button>
+                <label className="flex items-center gap-2 text-xs font-semibold text-[var(--muted)] cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={autoSubmit}
+                    onChange={(e) => setAutoSubmit(e.target.checked)}
+                    className="rounded border-[var(--line)] text-[var(--accent)] focus:ring-[var(--accent)]"
+                  />
+                  Auto-submit on load
+                </label>
+              </div>
             </div>
           </form>
 
@@ -252,7 +304,7 @@ export function InteractiveApp() {
           )}
 
           {response && (
-            <div className="mt-8 border-t border-[var(--line)] pt-6">
+            <div id="tour-interactive-telemetry" className="mt-8 border-t border-[var(--line)] pt-6">
               <h3 className="mb-4 text-lg font-bold text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>
                 Pipeline Telemetry
               </h3>
@@ -305,7 +357,7 @@ export function InteractiveApp() {
         <section className="flex flex-col gap-6">
           
           {/* Answer Output */}
-          <div className="rise-in rounded-[1.4rem] border border-[var(--line)] bg-[var(--panel)] p-5 backdrop-blur-sm sm:p-6">
+          <div id="tour-interactive-answer" className="rise-in rounded-[1.4rem] border border-[var(--line)] bg-[var(--panel)] p-5 backdrop-blur-sm sm:p-6">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-2xl text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>Generated Answer</h2>
               {response && (
@@ -337,7 +389,7 @@ export function InteractiveApp() {
           </div>
 
           {/* Evidence Chunks with Score Visualizer */}
-          <div className="rise-in flex-1 rounded-[1.4rem] border border-[var(--line)] bg-[var(--panel)] p-5 backdrop-blur-sm sm:p-6" style={{ animationDelay: "80ms" }}>
+          <div id="tour-interactive-evidence" className="rise-in flex-1 rounded-[1.4rem] border border-[var(--line)] bg-[var(--panel)] p-5 backdrop-blur-sm sm:p-6" style={{ animationDelay: "80ms" }}>
             <div className="mb-5">
               <h2 className="text-2xl text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>Retrieved Evidence</h2>
               <p className="mt-1 text-sm text-[var(--muted)]">Source passages matched and scored by the cross-encoder.</p>
@@ -355,6 +407,13 @@ export function InteractiveApp() {
       <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-amber-200 bg-amber-50 py-2.5 text-center text-xs font-semibold text-amber-800 backdrop-blur-md">
         ⚠️ <strong>Research Prototype:</strong> This tool is for demonstration purposes only and must not be used for medical diagnosis, treatment, or clinical decision-making.
       </footer>
+
+      {/* Guided Help Tour Overlay */}
+      <GuidedTour
+        steps={TOUR_STEPS}
+        active={tourActive}
+        onClose={() => setTourActive(false)}
+      />
     </div>
   );
 }

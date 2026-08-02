@@ -7,6 +7,7 @@ import {
 import { AnswerPanel } from "./components/AnswerPanel";
 import { EvidencePanel } from "./components/EvidencePanel";
 import { QueryForm } from "./components/QueryForm";
+import { GuidedTour, type TourStep } from "./components/GuidedTour";
 
 export default function App() {
   const [query, setQuery] = useState("");
@@ -16,6 +17,42 @@ export default function App() {
   const [result, setResult] = useState<QueryResponse | null>(null);
   const [activeCitation, setActiveCitation] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"answer" | "evidence">("answer");
+  const [tourActive, setTourActive] = useState(false);
+
+  const TOUR_STEPS: TourStep[] = [
+    {
+      targetId: "tour-portal-header",
+      title: "Welcome to X-CDS Portal!",
+      description: "X-CDS is a clinically aligned, explainable decision support tool. It integrates guideline search with citation verification to protect against generative hallucinations.",
+    },
+    {
+      targetId: "tour-query-form",
+      title: "Clinical Presets & Symptom Entry",
+      description: "Select standard clinical scenarios from the presets dropdown, or type custom symptoms directly into the textarea.",
+    },
+    {
+      targetId: "tour-telemetry",
+      title: "Pipeline Telemetry",
+      description: "This shows execution statistics in real-time. It tracks attempts, first-pass validation, and clinical abstention (safety refusals).",
+    },
+    {
+      targetId: "tour-answer-container",
+      title: "Attributed Clinical Answer",
+      description: "Read the generated response here. The bracketed numbers (e.g. [1]) show exactly which medical claim is verified by the retrieved source.",
+    },
+    {
+      targetId: "tour-evidence-container",
+      title: "Verified Evidence Sources",
+      description: "Review original passage excerpts from WHO/CDC guidelines. Click any citation link in the answer to focus and highlight its source here.",
+    },
+  ];
+
+  const startTour = () => {
+    if (!result) {
+      handleDemo();
+    }
+    setTourActive(true);
+  };
 
   async function handleSubmit(overrideQuery?: string) {
     const targetQuery = overrideQuery !== undefined ? overrideQuery : query;
@@ -70,7 +107,7 @@ export default function App() {
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-6 sm:px-6 lg:px-8 lg:py-8 pb-16">
-      <header className="rise-in mb-6 lg:mb-8">
+      <header id="tour-portal-header" className="rise-in mb-6 lg:mb-8">
         <div className="flex items-start justify-between">
           <div>
             <p className="mb-2 text-sm font-medium tracking-[0.18em] text-[var(--accent-deep)] uppercase">
@@ -84,6 +121,12 @@ export default function App() {
             </h1>
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={startTour}
+              className="rounded-xl border border-[var(--accent)] bg-[var(--highlight)] px-4 py-2.5 text-xs font-bold text-[var(--accent-deep)] transition hover:bg-[var(--accent)] hover:text-white animate-pulse"
+            >
+              ✨ Help Tour
+            </button>
             <a
               href="/report"
               className="rounded-xl border border-[var(--line)] bg-white/60 px-4 py-2.5 text-xs font-semibold text-[var(--muted)] transition hover:border-[var(--accent)] hover:bg-white hover:text-[var(--accent-deep)]"
@@ -134,7 +177,7 @@ export default function App() {
         <div className="grid flex-1 gap-5 lg:grid-cols-2 lg:gap-6">
           {/* Query & Answer Section */}
           <section className={`rise-in rounded-[1.4rem] border border-[var(--line)] bg-[var(--panel)] p-5 backdrop-blur-sm sm:p-6 lg:block ${activeTab === "answer" ? "block" : "hidden"}`}>
-            <div className="mb-5">
+            <div id="tour-query-form" className="mb-5">
               <h2
                 className="text-2xl text-[var(--ink)]"
                 style={{ fontFamily: "var(--font-display)" }}
@@ -188,7 +231,7 @@ export default function App() {
 
             {/* Unified Telemetry Panel */}
             {result && (
-              <div className="mt-6 border-t border-[var(--line)] pt-5">
+              <div id="tour-telemetry" className="mt-6 border-t border-[var(--line)] pt-5">
                 <h3 className="text-xs font-bold tracking-wider text-[var(--muted)] uppercase mb-3" style={{ fontFamily: "var(--font-display)" }}>
                   Pipeline Telemetry
                 </h3>
@@ -235,7 +278,7 @@ export default function App() {
             )}
 
             {result && (
-              <div className="mt-8 border-t border-[var(--line)] pt-6">
+              <div id="tour-answer-container" className="mt-8 border-t border-[var(--line)] pt-6">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <h2
                     className="text-2xl text-[var(--ink)]"
@@ -276,6 +319,7 @@ export default function App() {
 
           {/* Evidence Section */}
           <section
+            id="tour-evidence-container"
             className={`rise-in rounded-[1.4rem] border border-[var(--line)] bg-[var(--panel)] p-5 backdrop-blur-sm sm:p-6 lg:block ${
               activeTab === "evidence" ? "block" : "hidden"
             }`}
@@ -304,6 +348,13 @@ export default function App() {
       <footer className="fixed bottom-0 left-0 right-0 z-50 border-t border-amber-200 bg-amber-50 py-2.5 text-center text-xs font-semibold text-amber-800 backdrop-blur-md">
         ⚠️ <strong>Research Prototype:</strong> This tool is for demonstration purposes only and must not be used for medical diagnosis, treatment, or clinical decision-making.
       </footer>
+
+      {/* Guided Tour Component */}
+      <GuidedTour
+        steps={TOUR_STEPS}
+        active={tourActive}
+        onClose={() => setTourActive(false)}
+      />
     </div>
   );
 }
