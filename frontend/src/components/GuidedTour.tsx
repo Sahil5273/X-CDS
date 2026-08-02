@@ -59,21 +59,15 @@ export function GuidedTour({ steps, active, onClose }: GuidedTourProps) {
 
   const currentStep = steps[currentStepIndex];
 
-  // Dynamic positioning for the guide dialog
-  const popupStyle: React.CSSProperties = coords
-    ? {
-        position: "absolute",
-        top: coords.top + coords.height + 16,
-        left: Math.max(16, Math.min(window.innerWidth - 340, coords.left + coords.width / 2 - 150)),
-        width: "320px",
-      }
-    : {
-        position: "fixed",
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
-        width: "340px",
-      };
+  // Viewport-fixed bottom-center positioning to prevent off-screen overflow and layout shifts
+  const popupStyle: React.CSSProperties = {
+    position: "fixed",
+    bottom: "74px", // Floats comfortably above the sticky disclaimer footer
+    left: "50%",
+    transform: "translateX(-50%)",
+    width: "calc(100% - 32px)",
+    maxWidth: "360px",
+  };
 
   const handleNext = () => {
     if (currentStepIndex < steps.length - 1) {
