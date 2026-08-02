@@ -1,48 +1,46 @@
 \section{System Architecture and Methodology}\label{sec:methods}
 
-The system architecture of X-CDS consists of a dual-channel retrieval phase, a cross-encoder re-ranking stage, and a stateful LangGraph self-correction loop. The pipeline workflow is illustrated in \cref{fig:pipeline}.
+X-CDS has three stages: hybrid retrieval, cross-encoder re-ranking, and a LangGraph loop that validates citations before output. \Cref{fig:pipeline} shows the control flow.
 
 \input{figures/pipeline_architecture}
 
 \subsection{Data Ingestion and Knowledge Base}
-Clinical literature is ingested via the NIH BioC API \citep{tsatsaronis2015overview}. To establish a standardized ground truth for clinical decision support, our reference database incorporates the official World Health Organization (WHO) and Pan American Health Organization (PAHO) guidelines for the clinical diagnosis, treatment, and control of arboviral diseases. These guidelines provide standardized classification tables (e.g., differentiating Dengue with or without warning signs from Severe Dengue) that serve as explicit facts during retrieval.
+We pull open-access articles through the NIH BioC API \citep{comeau2019pmc} and index WHO and PAHO arbovirus guidelines (e.g., dengue classification with and without warning signs). The indexed corpus used for the main $N=100$ evaluation contained 6,940 semantic chunks from 73 PMC sources; a later pilot ingest expanded coverage but was not used for the quantitative tables in \cref{sec:results}.
 
 \subsection{Chunking Strategy Rationale}
-The division of source documents into chunks is a critical parameter in RAG architectures, impacting both retrieval recall and generation citation alignment. While quantitative ablation of different chunking strategies remains future work, Semantic Chunking was selected for X-CDS based on structural design rationale. Text is split by monitoring the cosine distance of embeddings between consecutive sentences, starting a new chunk when semantic shifts exceed the 95th percentile. By preserving cohesive clinical concepts within single paragraphs, this strategy ensures that cited claims mapped to a chunk maintain high verbatim overlap with the source paragraph, which is crucial for our token-overlap guardrail validator.
+Documents are split with semantic chunking: we embed consecutive sentences and start a new chunk when inter-sentence distance crosses the 95th percentile within the document. Target size is 1,000 characters with 200-character overlap. We chose this scheme because our guardrail matches claims to chunk text; keeping related clinical statements together makes overlap scores more stable. A formal chunking ablation is future work.
 
 \subsection{Hybrid Retrieval Pipeline}
-To capture both semantic concepts and specific clinical terminology (e.g., drug names, gene variants), we implement a dual-channel retrieval system:
+Two retrievers run in parallel:
 \begin{enumerate}
-    \item \textbf{Dense Vector Search:} Documents are embedded using \texttt{BAAI/bge-small-en-v1.5} and queried via Cosine Similarity in ChromaDB.
-    \item \textbf{Sparse Lexical Search:} Documents are indexed using the BM25 algorithm to ensure keyword recall.
+    \item \textbf{Dense Vector Search:} \texttt{BAAI/bge-small-en-v1.5} embeddings in ChromaDB (cosine similarity).
+    \item \textbf{Sparse Lexical Search:} BM25 over the same corpus for exact terminology.
 \end{enumerate}
 
-The ranks from both search methods are merged using Reciprocal Rank Fusion (RRF). The RRF score for document $d \in D$ is defined as:
-
+Ranks are fused with reciprocal rank fusion (RRF):
 \begin{equation}
 RRF(d) = \sum_{m \in M} \frac{1}{k + r_m(d)}
 \end{equation}
 
-where $M$ is the set of retrieval methods (dense and sparse), $r_m(d)$ is the rank of document $d$ in method $m$, and $k$ is a constant smoothing parameter (typically $k=60$).
+where $M=\{\text{dense}, \text{sparse}\}$, $r_m(d)$ is the rank of document $d$ under method $m$, and $k=60$.
 
 \subsection{Cross-Encoder Re-ranking}
-The top $N$ candidate documents from the RRF step are re-ranked using a Cross-Encoder model (\texttt{cross-encoder/ms-marco-MiniLM-L-6-v2}) \citep{reimers2019sentence}. The model computes a joint query-document relevance score:
-
+The top $N$ fused candidates are rescored with \texttt{cross-encoder/ms-marco-MiniLM-L-6-v2}, a BERT-based passage reranker in the MS MARCO tradition \citep{nogueira2019passage}:
 \begin{equation}
 Score(q, d) = \sigma(\mathbf{W}^T \text{Transformer}([CLS]; q; [SEP]; d))
 \end{equation}
 
-where $q$ is the query, $d$ is the document chunk, and $\sigma$ is the sigmoid function. The top $K$ chunks are selected to form the generation context.
+The top $K$ chunks form the generation context.
 
 \subsection{LangGraph Stateful Orchestration and Self-Correction}
-The orchestration is implemented as a stateful graph using LangGraph \citep{langgraph2024}. The graph contains two nodes:
+The graph has two nodes \citep{langgraph2024}:
 \begin{enumerate}
-    \item \textbf{GeminiGenerationNode:} Constructs the clinical response using a robust model wrapper (\texttt{RobustChatVertexAI} fallback logic). It forces the LLM to output its response in markdown with bracketed inline citation markers (e.g., \texttt{[1]}).
-    \item \textbf{CitationGuardrailNode:} Programmatically checks that every cited sentence has a minimum verbatim token overlap with the referenced source text:
+    \item \textbf{GeminiGenerationNode} --- produces markdown answers with bracketed citations via our \texttt{RobustChatVertexAI} wrapper.
+    \item \textbf{CitationGuardrailNode} --- checks overlap between each cited sentence and its source chunk:
 \end{enumerate}
 
 \begin{equation}
 Overlap(S_{claim}, S_{source}) = \frac{|T(S_{claim}) \cap T(S_{source})|}{|T(S_{claim})|}
 \end{equation}
 
-where $T(S)$ denotes the set of alphanumeric tokens in sentence $S$. If the overlap is below the threshold $T_{min} = 0.10$, the validator marks \texttt{validation\_passed = False}, compiles error logs, and routes the state back to the generator node for a self-correction attempt.
+where $T(S)$ is the alphanumeric token set of sentence $S$. If overlap falls below $T_{min}=0.10$, validation fails and the graph returns to generation with logged errors.

@@ -1,25 +1,26 @@
 \section{Introduction}\label{sec:intro}
-The deployment of Large Language Models (LLMs) such as GPT-4 and Gemini in clinical settings has demonstrated their potential to assist clinicians with diagnostic suggestions, literature summaries, and treatment plan generation. Despite these capabilities, generative models are fundamentally statistical next-token predictors. Consequently, they suffer from the ``hallucination'' phenomenon---generating logical-sounding but factual fabrications. In high-stakes clinical settings, an unsubstantiated treatment or diagnostic suggestion can lead to severe adverse patient outcomes.
+
+Large language models can draft differential diagnoses, summarize guidelines, and suggest next steps in care. They can also state plausible recommendations that are not supported by the evidence in front of them. In clinical use, that gap between fluent text and verified fact is the main safety concern we address.
+
+We built \textbf{X-CDS} (Explainable Clinical Decision Support) for emerging arbovirus management at VIT Bhopal: a retrieval pipeline that must attach each clinical claim to a retrieved WHO or PMC passage before the answer is released.
 
 \subsection{The Arbovirus Differential Diagnosis Dilemma}
-To evaluate X-CDS in a highly challenging and clinically realistic scenario, we focus on emerging arboviruses: \textbf{Zika, Dengue, Chikungunya, and West Nile Virus}. Differentiating these pathogens represents a classic diagnostic challenge in tropical medicine due to their overlapping acute presentations (fever, rash, and joint pain). 
-
-However, misdiagnosis carries extreme clinical risk:
+Our evaluation domain covers \textbf{Zika, Dengue, Chikungunya, and West Nile virus}. Fever, rash, and joint pain overlap across these infections, so early labels are often wrong. The cost of a wrong label is not symmetric:
 \begin{itemize}
-    \item A patient presenting with severe joint pain may be diagnosed with Chikungunya and prescribed non-steroidal anti-inflammatory drugs (NSAIDs) like Aspirin or Ibuprofen for pain relief.
-    \item If the patient actually has Dengue, administering NSAIDs can impair platelet function and trigger severe, potentially fatal internal hemorrhages (Dengue Hemorrhagic Fever).
-    \item Similarly, misdiagnosing Zika in pregnant patients can lead to missed screening opportunities for microcephaly and Congenital Zika Syndrome (CZS).
+    \item A patient with severe joint pain may receive NSAIDs (e.g., ibuprofen or aspirin) when Chikungunya is suspected.
+    \item If the true diagnosis is Dengue, NSAIDs can worsen platelet dysfunction and precipitate hemorrhagic complications.
+    \item In pregnancy, missed Zika screening can delay detection of congenital Zika syndrome.
 \end{itemize}
 
-This environment perfectly simulates the high-stakes clinical scenarios where LLM hallucinations or slight inaccuracies are unacceptable. Traditional Retrieval-Augmented Generation (RAG) mitigates this by injecting relevant medical literature into the model's prompt context \citep{lewis2020retrieval}. However, standard RAG still fails if:
+These cases motivated our design: retrieval must surface the right guideline language, and generation must not outrun what was retrieved. Standard retrieval-augmented generation (RAG) helps by adding literature to the prompt \citep{lewis2020retrieval}, but two failure modes remain common:
 \begin{enumerate}
-    \item The retrieval pipeline fails to capture critical clinical facts (poor recall).
-    \item The generator ignores the injected context or synthesizes claims that lack an explicit source citation (hallucination).
+    \item Retrieval omits the chunk that carries the critical fact.
+    \item The generator paraphrases beyond what the retrieved text supports, or cites a source that does not contain the claim.
 \end{enumerate}
 
-To address these vulnerabilities, we present the \textbf{X-CDS} framework. The primary contributions of this paper are:
+\textbf{X-CDS} targets both stages. Our contributions are:
 \begin{enumerate}
-    \item A dual-channel \textbf{Hybrid Retrieval} pipeline combining dense vector embeddings and sparse keyword indices merged via Reciprocal Rank Fusion (RRF) and optimized using a transformer-based Cross-Encoder re-ranker.
-    \item A stateful \textbf{LangGraph Self-Correction} workflow that programmatically checks citation alignment using character-level token-overlap algorithms.
-    \item An empirical evaluation of the pipeline's effectiveness using the Ragas metric framework, showing that programmatic self-correction loops yield directional improvements in clinical safety.
+    \item A hybrid retrieval stack (dense embeddings + BM25, RRF merge, cross-encoder re-ranking).
+    \item A LangGraph guardrail loop that enforces minimum token overlap between cited sentences and source chunks.
+    \item An empirical study on 100 arbovirus clinical scenarios, including threshold sweeps, pipeline telemetry, and qualitative case review on the pre-pilot evaluation corpus (6,940 chunks).
 \end{enumerate}
