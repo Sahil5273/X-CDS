@@ -1,0 +1,25 @@
+\section{Introduction}\label{sec:intro}
+The deployment of Large Language Models (LLMs) such as GPT-4 and Gemini in clinical settings has demonstrated their potential to assist clinicians with diagnostic suggestions, literature summaries, and treatment plan generation. Despite these capabilities, generative models are fundamentally statistical next-token predictors. Consequently, they suffer from the ``hallucination'' phenomenon---generating logical-sounding but factual fabrications. In high-stakes clinical settings, an unsubstantiated treatment or diagnostic suggestion can lead to severe adverse patient outcomes.
+
+\subsection{The Arbovirus Differential Diagnosis Dilemma}
+To evaluate X-CDS in a highly challenging and clinically realistic scenario, we focus on emerging arboviruses: \textbf{Zika, Dengue, Chikungunya, and West Nile Virus}. Differentiating these pathogens represents a classic diagnostic challenge in tropical medicine due to their overlapping acute presentations (fever, rash, and joint pain). 
+
+However, misdiagnosis carries extreme clinical risk:
+\begin{itemize}
+    \item A patient presenting with severe joint pain may be diagnosed with Chikungunya and prescribed non-steroidal anti-inflammatory drugs (NSAIDs) like Aspirin or Ibuprofen for pain relief.
+    \item If the patient actually has Dengue, administering NSAIDs can impair platelet function and trigger severe, potentially fatal internal hemorrhages (Dengue Hemorrhagic Fever).
+    \item Similarly, misdiagnosing Zika in pregnant patients can lead to missed screening opportunities for microcephaly and Congenital Zika Syndrome (CZS).
+\end{itemize}
+
+This environment perfectly simulates the high-stakes clinical scenarios where LLM hallucinations or slight inaccuracies are unacceptable. Traditional Retrieval-Augmented Generation (RAG) mitigates this by injecting relevant medical literature into the model's prompt context \citep{lewis2020retrieval}. However, standard RAG still fails if:
+\begin{enumerate}
+    \item The retrieval pipeline fails to capture critical clinical facts (poor recall).
+    \item The generator ignores the injected context or synthesizes claims that lack an explicit source citation (hallucination).
+\end{enumerate}
+
+To address these vulnerabilities, we present the \textbf{X-CDS} framework. The primary contributions of this paper are:
+\begin{enumerate}
+    \item A dual-channel \textbf{Hybrid Retrieval} pipeline combining dense vector embeddings and sparse keyword indices merged via Reciprocal Rank Fusion (RRF) and optimized using a transformer-based Cross-Encoder re-ranker.
+    \item A stateful \textbf{LangGraph Self-Correction} workflow that programmatically checks citation alignment using character-level token-overlap algorithms.
+    \item An empirical evaluation of the pipeline's effectiveness using the Ragas metric framework, showing that programmatic self-correction loops yield directional improvements in clinical safety.
+\end{enumerate}

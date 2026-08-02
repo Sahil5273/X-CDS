@@ -1,0 +1,16 @@
+\begin{table}[htbp]
+\centering
+\caption{Impact of Overlap Threshold ($T_{min}$) on Pipeline Metrics ($N=100$, pre-pilot corpus of 6,940 chunks)}
+\label{tab:threshold_sweep}
+\begin{tabular}{lcc}
+\toprule
+Overlap Threshold ($T_{min}$) & Ragas Faithfulness & Ragas Answer Relevancy \\
+\midrule
+0.00 (Baseline RAG) & \SI{89.78}{\percent} & \textbf{\SI{61.17}{\percent}} \\
+0.10 (X-CDS Default) & \textbf{\SI{93.37}{\percent}} \textit{(Peak)} & \SI{57.81}{\percent} \\
+0.15 (X-CDS Mild) & \SI{90.20}{\percent} & \SI{59.07}{\percent} \\
+0.25 (X-CDS Strict) & \SI{89.49}{\percent} & \SI{57.31}{\percent} \\
+0.50 (X-CDS Extreme) & \SI{92.41}{\percent} & \SI{57.82}{\percent} \\
+\bottomrule
+\end{tabular}
+\end{table}

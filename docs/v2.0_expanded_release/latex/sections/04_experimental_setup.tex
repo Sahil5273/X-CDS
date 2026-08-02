@@ -1,0 +1,25 @@
+\section{Experimental Setup}\label{sec:setup}
+
+\subsection{Evaluation Dataset}
+We construct a clinical evaluation dataset consisting of $N=100$ complex clinical scenarios focusing on emerging arboviral pathogens. The clinical queries and ground-truth answers were semi-automatically generated utilizing guidelines from the CDC and WHO, and validated to ensure high clinical realism.
+
+The reference knowledge base comprises \textbf{6,940 text chunks} (using semantic chunking with a 1,000-character target length and 200-character overlap) ingested from \textbf{73 open-access PMC medical journals} and official WHO guidelines. The clinical scenarios are distributed across the primary arboviruses under study:
+\begin{itemize}
+    \item \textbf{Dengue Virus (DENV):} 35\% of queries, focusing on plasma leakage, platelet counts, warning signs of severe Dengue, and NSAID contraindications.
+    \item \textbf{Zika Virus (ZIKV):} 30\% of queries, covering microcephaly pathobiology, transplacental transmission pathways, and maternal-fetal diagnostic protocols.
+    \item \textbf{Chikungunya Virus (CHIKV):} 20\% of queries, focusing on debilitating arthralgia, long-term post-acute sequelae, and vector specificities.
+    \item \textbf{West Nile Virus (WNV):} 15\% of queries, addressing neuroinvasive presentations, meningitis, and diagnostic markers in cerebrospinal fluid (CSF).
+\end{itemize}
+
+Each evaluation case includes a Question, a Ground Truth answer, and the mapped source literature passages. Importantly, to prevent train/test leakage, the clinical evaluation questions and ground-truth answers were compiled independently from the partition and indexing of the reference corpus, ensuring that the model is graded on its ability to dynamically retrieve and ground answers in unfamiliar passage partitions.
+
+\subsection{Automated Ragas Metrics and Judgement Model}
+Evaluation is performed using the \textbf{Ragas} framework, utilizing \texttt{ChatGoogleGenerativeAI} and \texttt{GoogleGenerativeAIEmbeddings} running on Google Cloud Vertex AI \citep{es2023ragas}. Evaluating a model using the same model family introduces ``self-evaluation bias.'' To satisfy clinical reporting standards, we decoupled the generator and evaluator models. The generation node uses \texttt{gemini-3.5-flash} to process queries, whereas the Ragas evaluator runs on a separate Pro-tier model (\texttt{gemini-2.5-pro}), ensuring objective quality grading.
+
+We assess:
+\begin{itemize}
+    \item \textbf{Faithfulness:} Measures if the generated claims are entirely supported by the retrieved contexts.
+    \item \textbf{Answer Relevancy:} Evaluates if the generated response directly answers the user's clinical query.
+    \item \textbf{Context Precision:} Determines if the most relevant retrieved chunks are ranked at the top.
+    \item \textbf{Context Recall:} Assesses whether all necessary information in the ground truth is successfully retrieved.
+\end{itemize}

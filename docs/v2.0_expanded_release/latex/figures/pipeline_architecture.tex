@@ -1,0 +1,28 @@
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[node distance = 1.3cm, auto, >=stealth,
+    block/.style={rectangle, draw, fill=blue!10, text width=13em, text centered, rounded corners, minimum height=2.6em, font=\small},
+    decision/.style={diamond, draw, fill=green!10, text width=8.5em, text centered, minimum height=2.6em, inner sep=0pt, font=\small},
+    arrow/.style={thick,->,>=stealth}
+]
+    % Place nodes
+    \node [block] (query) {Clinical Query};
+    \node [block, below=of query] (hybrid) {Hybrid Search: Dense + Sparse};
+    \node [block, below=of hybrid] (rrf) {Reciprocal Rank Fusion (RRF)};
+    \node [block, below=of rrf] (rerank) {Cross-Encoder Re-ranker};
+    \node [block, below=of rerank] (generator) {Gemini Generation Node};
+    \node [decision, below=of generator] (guard) {Citation Overlap Validator};
+    \node [block, below=of guard, yshift=-0.5cm] (output) {Output to Web Dashboard};
+    
+    % Draw edges
+    \draw [arrow] (query) -- (hybrid);
+    \draw [arrow] (hybrid) -- (rrf);
+    \draw [arrow] (rrf) -- (rerank);
+    \draw [arrow] (rerank) -- (generator);
+    \draw [arrow] (generator) -- (guard);
+    \draw [arrow] (guard) -- node [right] {\small Pass ($Overlap \ge T_{min}$)} (output);
+    \draw [arrow] (guard.west) -- ++(-1.8cm,0) node [above, pos=0.5] {\small Fail} |- (generator.west);
+\end{tikzpicture}
+\caption{Stateful self-correcting clinical diagnostic pipeline architecture showing hybrid search, rank fusion, cross-encoder re-ranking, and LangGraph-driven token-overlap verification loop.}
+\label{fig:pipeline}
+\end{figure}

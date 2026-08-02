@@ -1,0 +1,14 @@
+\section{Related Work}\label{sec:related_work}
+
+\subsection{Retrieval-Augmented Generation in Clinical QA}
+Retrieval-Augmented Generation (RAG) has emerged as the standard paradigm for grounding Large Language Models on domain-specific corpora, bypassing the need for expensive fine-tuning while enabling dynamic context updates \citep{lewis2020retrieval}. In the biomedical domain, early systems relied on dense vector embeddings to match queries with PubMed literature or clinical guidelines \citep{lee2020biobert,huang2019clinicalbert}. While dense retrieval captures semantic similarities, it often misses exact clinical keywords, such as specific pharmaceutical brand names or genetic mutations, which BM25 keyword indexes successfully retrieve. Modern hybrid architectures combine sparse lexical search and dense vector search to maximize retrieval recall \citep{gao2023retrieval}.
+
+Despite these improvements, presenting a clinical model with relevant documents does not guarantee a safe answer. Models like Med-PaLM \citep{singhal2023large} and clinical variants of GPT-4 \citep{nori2023capabilities} can still hallucinate information or generate claims that lack verified, traceable origins in the retrieved context. This has motivated benchmarking efforts like MedRAG \citep{xiong2024medrag} and BioASQ \citep{tsatsaronis2015overview} to measure factual grounding.
+
+\subsection{Hallucination Mitigation and Attribution}
+Hallucination mitigation in clinical NLP generally falls into two categories: post-hoc correction and active guardrails. Post-hoc correction pipelines process outputs using separate critic models to highlight unsubstantiated claims \citep{ghalandari2023attribution,patel2024correcting}. However, critic-based verification is prone to self-evaluation bias and introduces high latency. 
+
+Recent work focuses on measuring exact attribution to ensure that generated claims map directly to the source context \citep{rashkin2023measuring}. Self-RAG \citep{asai2024selfrag} trains models to generate meta-tokens indicating if retrieval is needed or if claims are supported. While promising, this approach requires training custom models, making it difficult to deploy with proprietary API-driven models. 
+
+\subsection{Stateful Orchestration and Self-Correction Loops}
+To enforce citation safety without model retraining, recent architectures utilize stateful agent loops. Stateful frameworks like LangGraph allow developers to structure LLM applications as cyclic graphs with explicit state verification nodes \citep{langgraph2024}. Loops allow systems to automatically detect formatting or factual errors, routing inputs back to generation nodes with detailed compiler-like logs. X-CDS leverages this paradigm to implement deterministic, character-level verification checks that ensure all synthesized clinical claims map back to source guidelines before output.

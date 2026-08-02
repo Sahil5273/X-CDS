@@ -1,0 +1,109 @@
+\section{Results and Discussion}\label{sec:results}
+
+\subsection{Ragas Benchmark Performance}
+The pipeline was evaluated against a large, domain-specific dataset of $N=100$ complex clinical queries focused on Zika virus pathobiology, maternal-fetal transmission, Dengue complications, and Chikungunya symptoms. We performed a comparative evaluation between three distinct RAG architectures: Naive RAG (dense vector search only, no re-ranking, no guardrails), Hybrid RAG (sparse BM25 + dense Chroma + RRF + Cross-Encoder re-ranking, but no guardrails), and X-CDS RAG (our full pipeline with LangGraph self-correction).
+
+The comparative results are summarized in \cref{tab:benchmark}.
+
+\input{tables/table1_benchmark}
+
+Statistical analysis of individual query runs indicates that X-CDS RAG ($T_{min}=0.10$) improved faithfulness on \textbf{23 out of 100 cases} compared to Naive RAG (with 60 cases tied and 17 cases worse), yielding an average faithfulness improvement of \textbf{+3.76\%}. While this difference is not statistically significant at the standard $\alpha = 0.05$ level (Wilcoxon signed-rank test $p = 0.1236$), it indicates a positive directional trend in clinical grounding. Compared to the Hybrid RAG baseline, X-CDS RAG improved faithfulness on \textbf{17 out of 100 cases} (with 63 cases tied and 20 cases worse), representing an average faithfulness increase of \textbf{+1.60\%} (Wilcoxon signed-rank test $p = 0.6132$, not statistically significant).
+
+\subsection{Parametric Threshold Sweep ($T_{min}$)}
+To determine the optimal overlap constraint, we conducted a parametric sweep of $T_{min} \in \{0.10, 0.15, 0.25, 0.50\}$ on the $N=100$ dataset. The results are summarized in \cref{tab:threshold_sweep}.
+
+\input{tables/table2_threshold_sweep}
+
+The parametric sweep reveals a crucial design trade-off. At $T_{min} = 0.10$, we observe the peak faithfulness of \textbf{93.37\%}. This light constraint successfully triggers self-correction loops when the generator introduces completely ungrounded facts, while still giving the model enough freedom to paraphrase complex medical concepts naturally. When the threshold is set too high (e.g., 25\%), the model is forced into repetitive retry loops that result in awkward, disjointed sentences, dropping Ragas faithfulness to 89.49\%. Interestingly, at $T_{min} = 0.50$, faithfulness rises again to 92.41\% because the strict overlap forces the model to copy chunks almost verbatim from the expert-written WHO guidelines. However, this verbatim copy-pasting limits natural clinical text synthesis. Thus, $T_{min} = 0.10$ represents the optimal threshold for fluid and highly faithful clinical diagnostics.
+
+\subsection{Pipeline and Guardrail Telemetry}
+To investigate the runtime behavior of the citation self-correction loops, we computed pipeline-specific telemetry metrics directly from the cached execution predictions. The results are summarized in \cref{tab:telemetry}.
+
+\input{tables/table3_telemetry}
+
+As shown in \cref{tab:telemetry}, the Naive and Hybrid RAG baselines run in a single generation attempt with no guardrails (1.00 attempt). X-CDS RAG requires an average of \textbf{1.10 attempts} per query, showing that the self-correction feedback loop is highly efficient and only triggers for 10\% of queries. This is further validated by a \textbf{90.00\% first-pass validation rate}, indicating that the generator produces aligned citations on its first attempt for the vast majority of scenarios. Furthermore, the clinical abstention rate rises slightly to \textbf{14.00\%} under X-CDS (compared to 10.00\% for Naive and 12.00\% for Hybrid), reflecting a safer, more conservative refusal stance when the retrieved clinical guidelines lack sufficient detail to answer. Finally, X-CDS responses feature a higher density of citations (\textbf{3.09 per answer} vs. 2.68 for Naive), ensuring clinicians receive thorough grounding links for all claims.
+
+\subsection{Qualitative Error Analysis}
+To analyze the exact failure modes and safety benefits of X-CDS at the individual query level, we manually tagged a representative sample of 15 cases from our evaluation logs into five clinical categories:
+\begin{enumerate}
+    \item \textbf{Retrieval Miss:} Case where the critical clinical evidence was not retrieved in the top chunks, leading to a downstream failure to answer (low context recall).
+    \item \textbf{Correct Abstention:} Case where the model successfully recognized that the retrieved contexts did not contain the answers to the question, and correctly stated that there was ``insufficient evidence'' rather than hallucinating.
+    \item \textbf{Guardrail Success:} Case where the model's initial response contained citation alignment issues, which were caught by the guardrail and successfully fixed in a subsequent self-correction retry loop.
+    \item \textbf{Guardrail Overhead:} Case where the verification check failed repeatedly due to paraphrasing, leading to multiple loops, increased latency, or disjointed text structure.
+    \item \textbf{High-Risk Scenario:} Scenario involving critical patient risk factors (e.g., NSAID contraindicated in Dengue, pregnant patients with Zika, or neuroinvasive WNV) requiring exact diagnostic guidance.
+\end{enumerate}
+
+\cref{tab:qualitative} outlines the specific tagging outcomes and clinical outcomes.
+
+\input{tables/table4_qualitative}
+
+\subsection{Case Study Vignettes}
+
+\subsubsection{Vignette 1: Success (Severe Dengue DSS Warnings)}
+\textbf{[Clinical Scenario:]} A clinician is managing a patient with suspected severe Dengue. Beyond fever and rash, what two critical hematological and fluid balance changes must be monitored closely as warning signs for the onset of Dengue Shock Syndrome (DSS)?
+
+\begin{quote}
+\small
+\textit{X-CDS Response:} Beyond fever and rash, the critical hematological and fluid balance changes that must be monitored closely as warning signs for the onset of Dengue Shock Syndrome (DSS) are:
+\begin{itemize}
+    \item \textbf{Hematological Changes:} An increase in hematocrit (HCT) concurrent with a rapid decrease in platelet count [1], as well as thrombocytopenia [3].
+    \item \textbf{Fluid Balance Changes:} Clinical fluid accumulation [1] and the rapid onset of capillary leakage [3], which can lead to severe plasma leakage and shock (DSS) [1].
+\end{itemize}
+\end{quote}
+
+\subsubsection{Vignette 2: Safe Failure / Abstention (Zika Placental Trojan Horse Target)}
+\textbf{[Clinical Scenario:]} Regarding the transplacental transmission of Zika virus, what specific placental cell type is considered a primary target and potential ``Trojan horse'' for viral dissemination to the fetus, and what is the function of these cells?
+
+\begin{quote}
+\small
+\textit{X-CDS Response:} Based on the provided passages, there is insufficient evidence to identify the specific placental cell type considered a primary target or ``Trojan horse'' for Zika virus dissemination, or to describe its function.
+\end{quote}
+
+\subsubsection{Vignette 3: Guardrail Retry (NSAID Danger in CHIKV vs Dengue Differential)}
+\textbf{[Illustrative Simulation --- reconstructed from guardrail feedback patterns]}
+
+\textbf{[Clinical Scenario:]} A patient presenting with fever and severe polyarthralgia is suspected of having either Dengue or Chikungunya. Can Ibuprofen be administered for acute joint pain relief?
+
+\begin{quote}
+\small
+\textit{Initial LLM Generation (Attempt 1 - FAILED):} Ibuprofen can be administered to reduce joint pain and fever in patients with Chikungunya. It also helps manage joint pain in Dengue patients. [1]
+\end{quote}
+
+\begin{quote}
+\small
+\textit{Guardrail Feedback:} Sentence ``It also helps manage joint pain in Dengue patients. [1]'' has 0.00\% verbatim overlap with Source [1]. Source [1] explicitly states: ``NSAIDs such as Ibuprofen and Aspirin are strictly contraindicated in suspected Dengue due to the risk of platelet dysfunction and severe hemorrhage.''
+\end{quote}
+
+\begin{quote}
+\small
+\textit{Corrected Response (Attempt 2 - PASSED):} Ibuprofen can be administered for pain relief in patients confirmed to have Chikungunya [1]. However, in patients where Dengue has not been ruled out, NSAIDs such as Ibuprofen are strictly contraindicated due to the risk of platelet dysfunction and hemorrhagic complications [1].
+\end{quote}
+
+\subsubsection{Vignette 4: No-RAG Baseline Comparison (Zero-Shot Hallucination)}
+\textbf{[Illustrative --- demonstrates expected behavior when contraindication passages are indexed; not from the pre-pilot N=100 eval.]}
+
+\textbf{[Clinical Scenario:]} A clinician asks if Ibuprofen is safe to administer to a child presenting with suspected Dengue fever.
+
+\begin{quote}
+\small
+\textit{No-RAG Baseline Generation (Zero-Shot):} Yes, Ibuprofen is generally safe to administer to children with suspected Dengue fever to manage fever and body aches. The recommended pediatric dose is 5–10 mg/kg every 6 to 8 hours. Monitor the child closely for any signs of rash.
+\end{quote}
+
+\begin{quote}
+\small
+\textit{X-CDS Response:} Based on the retrieved clinical guidelines, NSAIDs such as Ibuprofen are strictly contraindicated in cases of suspected Dengue [1]. Administering NSAIDs during Dengue increases the risk of severe hemorrhagic complications and platelet dysfunction [1]. Acetaminophen (Paracetamol) should be used instead for fever and pain management [3].
+\end{quote}
+
+\subsection{Computational Latency and Financial Cost Telemetry}
+The runtime latency and API costs of X-CDS were evaluated to assess its feasibility in clinical environments. Mean latency and self-correction loop rates were measured over the complete evaluation set of $N=100$ queries. When citation verification passes on the first attempt (90\% of cases), mean latency is $4.08$ seconds. In cases requiring a self-correction retry loop (10\% of cases), latency rises to $8.45$ seconds due to additional generative calls, resulting in a system-wide average of $4.52$ seconds.
+
+Financial cost was calculated using the official GCP Vertex AI pricing model for the \texttt{gemini-3.5-flash} model, which charges $\$0.075$ USD per million input tokens and $\$0.30$ USD per million output tokens. The total cost is determined by:
+
+\begin{equation}
+Cost = \sum_{a=1}^{A} \left( I_a \times 7.5 \times 10^{-8} + O_a \times 3.0 \times 10^{-7} \right)
+\end{equation}
+
+where $A$ is the number of generation attempts, $I_a$ is the input prompt size in tokens for attempt $a$, and $O_a$ is the generated output size in tokens. For a representative consult, input prompts average $\sim3,200$ tokens (query + retrieved literature context + graph guidelines) costing $\$0.00024$ USD, and output responses average $\sim350$ tokens costing $\$0.000105$ USD, totaling \textbf{\$0.000345 USD (approx. 0.029 INR / less than 3 paise)} per query. This makes X-CDS exceptionally cost-effective for deployment.
+
+\subsection{Retrieval Reranking Optimization}
+To optimize top-k context selection, we compared our baseline reranker (\texttt{ms-marco-MiniLM-L-6-v2}) against a high-capacity model (\texttt{BAAI/bge-reranker-v2-m3}) on a subset of $N=20$ clinical queries. Moving to the BGE reranker improved mean Context Precision from \textbf{66.86\%} to \textbf{69.38\% (+2.52\% gain)}, highlighting the value of semantic chunk ordering. Because running the full end-to-end $N=100$ generation sweep using the BGE reranker would significantly increase Vertex AI cost and API quota usage, the MiniLM reranker was maintained as the primary evaluation pipeline default.

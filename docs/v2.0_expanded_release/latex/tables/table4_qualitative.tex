@@ -1,0 +1,27 @@
+\begin{table}[htbp]
+\centering
+\caption{Tagged Qualitative Error Analysis and Clinical Scenarios ($N=15$, pre-pilot corpus of 6,940 chunks)}
+\label{tab:qualitative}
+\small
+\begin{tabular}{llp{9.5cm}}
+\toprule
+Case ID & Primary Category & Analysis \& Resolution \\
+\midrule
+Case 1 & Correct Abstention & Retrieval missed Hofbauer cells. Model output ``insufficient evidence,'' avoiding hallucination. \\
+Case 2 & High-Risk Scenario & Correctly identified Encephalitis as primary Chikungunya complication with citations [2]. \\
+Case 4 & Retrieval Miss & Ground-truth cell type (Hofbauer cell) was not in context. Correctly abstained. \\
+Case 5 & High-Risk Scenario & Successfully flagged thrombocytopenia and HCT increase from context [1]. \\
+Case 8 & Guardrail Success & Initial output lacked citation labels for CSF IgM. Corrected on attempt 2. \\
+Case 12 & Guardrail Overhead & Repeatedly looped on E1-A226V mutation naming conventions. Passed on attempt 3. \\
+Case 15 & Correct Abstention & Context lacked specific ultrasound intervals. Model correctly abstained. \\
+Case 19 & High-Risk Scenario & Correctly flagged NSAID hemorrhage risk in Dengue as a critical warning. \\
+Case 23 & Correct Abstention & Guidelines lacked specific monoclonal antibody efficacy. Correctly abstained from recommending unproven therapies. \\
+Case 24 & Correct Abstention & Context lacked laboratory testing strategies guidelines. Safe abstention triggered. \\
+Case 27 & Guardrail Success & Verbatim citations corrected during self-correction loop to meet $T_{min}=0.10$. \\
+Case 31 & Retrieval Miss & Context lacked ZIKV microcephaly molecular details. Safe abstention. \\
+Case 35 & High-Risk Scenario & Correctly mapped cross-reactivity warning to citation [3]. \\
+Case 42 & Guardrail Success & Re-ordered citations to match correct context indices on attempt 2. \\
+Case 45 & Guardrail Overhead & Re-prompted twice due to chronic arthritis cytokine GM-CSF markers. \\
+\bottomrule
+\end{tabular}
+\end{table}

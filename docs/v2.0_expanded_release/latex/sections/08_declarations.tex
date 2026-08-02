@@ -1,0 +1,19 @@
+\section*{Declarations}\label{sec:declarations}
+
+\subsection*{Ethics Approval}
+Not applicable. This study does not involve human subjects, animal experiments, or direct clinical patient data. All evaluations were performed using public clinical guidelines and synthetic queries compiled from WHO and CDC recommendations.
+
+\subsection*{Competing Interests}
+The authors declare that they have no known competing financial interests or personal relationships that could have appeared to influence the work reported in this paper.
+
+\subsection*{Funding and Acknowledgements}
+This research did not receive any specific grant from funding agencies in the public, commercial, or not-for-profit sectors. We thank the School of Computer Science and Engineering (SCSE), VIT Bhopal University, for supporting computational infrastructure.
+
+\subsection*{Data and Code Availability}
+The complete codebase, clinical evaluation dataset ($N=100$), raw benchmark predictions, and self-contained reproduction scripts are publicly available in the GitHub repository at \url{https://github.com/Sahil5273/X-CDS}. Comprehensive instructions for indexing, running the LangGraph pipeline, and generating the Wilcoxon stats are provided in \texttt{REPRODUCIBILITY.md}. The live interactive demo dashboard is hosted at \url{https://x-cds-live.web.app}.
+
+\subsection*{Generative AI Disclosure}
+The X-CDS pipeline utilizes Large Language Models for automated clinical text synthesis and evaluation. Specifically, the pipeline generation node leverages \texttt{gemini-3.5-flash} to construct attributed answers, and the automated Ragas evaluation judge utilizes \texttt{gemini-2.5-pro} to grade faithfulness and answer relevancy. Generative AI tools were used for drafting assistance, text editing, and LaTeX formatting. All authors reviewed and edited the manuscript, taking full responsibility for the content. AI tools were not used to generate experimental results.
+
+\subsection*{Author Contributions}
+\textbf{Sahil Kumar:} Conceptualization, methodology, system architecture design, software implementation, vector indexing, graph verification nodes, benchmarking execution, qualitative analysis, and original draft preparation. \textbf{Dr. Abdul Rahman:} Academic supervision, experimental methodology validation, advisor review, manuscript formatting, and critical editorial revisions.

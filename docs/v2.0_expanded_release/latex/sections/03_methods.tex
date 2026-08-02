@@ -1,0 +1,48 @@
+\section{System Architecture and Methodology}\label{sec:methods}
+
+The system architecture of X-CDS consists of a dual-channel retrieval phase, a cross-encoder re-ranking stage, and a stateful LangGraph self-correction loop. The pipeline workflow is illustrated in \cref{fig:pipeline}.
+
+\input{figures/pipeline_architecture}
+
+\subsection{Data Ingestion and Knowledge Base}
+Clinical literature is ingested via the NIH BioC API \citep{tsatsaronis2015overview}. To establish a standardized ground truth for clinical decision support, our reference database incorporates the official World Health Organization (WHO) and Pan American Health Organization (PAHO) guidelines for the clinical diagnosis, treatment, and control of arboviral diseases. These guidelines provide standardized classification tables (e.g., differentiating Dengue with or without warning signs from Severe Dengue) that serve as explicit facts during retrieval.
+
+\subsection{Chunking Strategy Rationale}
+The division of source documents into chunks is a critical parameter in RAG architectures, impacting both retrieval recall and generation citation alignment. While quantitative ablation of different chunking strategies remains future work, Semantic Chunking was selected for X-CDS based on structural design rationale. Text is split by monitoring the cosine distance of embeddings between consecutive sentences, starting a new chunk when semantic shifts exceed the 95th percentile. By preserving cohesive clinical concepts within single paragraphs, this strategy ensures that cited claims mapped to a chunk maintain high verbatim overlap with the source paragraph, which is crucial for our token-overlap guardrail validator.
+
+\subsection{Hybrid Retrieval Pipeline}
+To capture both semantic concepts and specific clinical terminology (e.g., drug names, gene variants), we implement a dual-channel retrieval system:
+\begin{enumerate}
+    \item \textbf{Dense Vector Search:} Documents are embedded using \texttt{BAAI/bge-small-en-v1.5} and queried via Cosine Similarity in ChromaDB.
+    \item \textbf{Sparse Lexical Search:} Documents are indexed using the BM25 algorithm to ensure keyword recall.
+\end{enumerate}
+
+The ranks from both search methods are merged using Reciprocal Rank Fusion (RRF). The RRF score for document $d \in D$ is defined as:
+
+\begin{equation}
+RRF(d) = \sum_{m \in M} \frac{1}{k + r_m(d)}
+\end{equation}
+
+where $M$ is the set of retrieval methods (dense and sparse), $r_m(d)$ is the rank of document $d$ in method $m$, and $k$ is a constant smoothing parameter (typically $k=60$).
+
+\subsection{Cross-Encoder Re-ranking}
+The top $N$ candidate documents from the RRF step are re-ranked using a Cross-Encoder model (\texttt{cross-encoder/ms-marco-MiniLM-L-6-v2}) \citep{reimers2019sentence}. The model computes a joint query-document relevance score:
+
+\begin{equation}
+Score(q, d) = \sigma(\mathbf{W}^T \text{Transformer}([CLS]; q; [SEP]; d))
+\end{equation}
+
+where $q$ is the query, $d$ is the document chunk, and $\sigma$ is the sigmoid function. The top $K$ chunks are selected to form the generation context.
+
+\subsection{LangGraph Stateful Orchestration and Self-Correction}
+The orchestration is implemented as a stateful graph using LangGraph \citep{langgraph2024}. The graph contains two nodes:
+\begin{enumerate}
+    \item \textbf{GeminiGenerationNode:} Constructs the clinical response using a robust model wrapper (\texttt{RobustChatVertexAI} fallback logic). It forces the LLM to output its response in markdown with bracketed inline citation markers (e.g., \texttt{[1]}).
+    \item \textbf{CitationGuardrailNode:} Programmatically checks that every cited sentence has a minimum verbatim token overlap with the referenced source text:
+\end{enumerate}
+
+\begin{equation}
+Overlap(S_{claim}, S_{source}) = \frac{|T(S_{claim}) \cap T(S_{source})|}{|T(S_{claim})|}
+\end{equation}
+
+where $T(S)$ denotes the set of alphanumeric tokens in sentence $S$. If the overlap is below the threshold $T_{min} = 0.10$, the validator marks \texttt{validation\_passed = False}, compiles error logs, and routes the state back to the generator node for a self-correction attempt.

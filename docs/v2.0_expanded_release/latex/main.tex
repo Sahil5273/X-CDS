@@ -1,0 +1,58 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{siunitx}
+\usepackage{enumitem}
+\usepackage{microtype}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{authblk}
+\usepackage{natbib}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows, positioning}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    citecolor=blue,
+    pdfpagemode=FullScreen,
+}
+
+\title{Explainable Clinical Decision Support (X-CDS): Mitigating LLM Hallucinations in High-Stakes Medicine via Hybrid Retrieval and Deterministic Citation Verification Frameworks}
+
+\author[1]{Sahil Kumar\thanks{Registration Number: 23BAI10224. Email: \href{mailto:sahil.kumar2023@vitbhopal.ac.in}{sahil.kumar2023@vitbhopal.ac.in}}}
+\author[1]{Abdul Rahman\thanks{Associate Professor. Email: \href{mailto:abdul.rahman@vitbhopal.ac.in}{abdul.rahman@vitbhopal.ac.in}}}
+\affil[1]{School of Computer Science and Engineering (SCSE), VIT Bhopal University, Bhopal, Madhya Pradesh, India}
+
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Large Language Models (LLMs) show significant promise in clinical decision support systems (CDSS). However, the propensity of generative models to ``hallucinate''---generate medically incorrect or unsubstantiated claims---remains a critical barrier to clinical deployment. This paper introduces \textbf{Explainable Clinical Decision Support (X-CDS)}, an architecture designed to improve the automated faithfulness of clinical recommendations via deterministic citation verification. X-CDS integrates a \textbf{Hybrid Retrieval} pipeline (ChromaDB Vector Search and BM25 Keyword Search) merged via \textbf{Reciprocal Rank Fusion (RRF)} and filtered through a \textbf{Cross-Encoder Re-ranker}. To prevent hallucinations, we implement a stateful \textbf{LangGraph} orchestration loop that programmatically validates generative assertions against retrieved source passages using a token-overlap alignment threshold. If the generator fails validation, the state machine routes the failure back for iterative self-correction. We evaluate the system using the \textbf{Ragas} benchmarking framework against a clinical dataset of $N=100$ queries, measuring Faithfulness, Answer Relevancy, Context Precision, and Context Recall. Our results suggest that lightweight citation guardrails can improve grounding in safety-critical settings with low retry overhead, showing directional improvements in model faithfulness compared to standard RAG baselines.
+\end{abstract}
+
+\textbf{Keywords:} Clinical Decision Support, Large Language Models, Hallucination Mitigation, LangGraph, Ragas Benchmarking, Hybrid Retrieval.
+
+\newpage
+
+\input{sections/01_introduction}
+\input{sections/02_related_work}
+\input{sections/03_methods}
+\input{sections/04_experimental_setup}
+\input{sections/05_results}
+\input{sections/06_limitations}
+\input{sections/07_conclusion}
+\input{sections/08_declarations}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

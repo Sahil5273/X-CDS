@@ -1,0 +1,20 @@
+\section{Limitations and Threats to Validity}\label{sec:limitations}
+
+\subsection{Threats to Validity}
+\begin{itemize}
+    \item \textbf{Evaluator LLM Bias:} Automated evaluation using Ragas relies on \texttt{gemini-2.5-pro} as the judge. While we decouple the generator and evaluator to mitigate self-evaluation bias, LLM evaluators can still display systemic rating preferences or minor inconsistencies.
+    \item \textbf{Synthetic Evaluation Dataset:} Benchmarking was conducted using a synthetic dataset of $N=100$ clinical queries rather than actual EHR records. While queries were verified for clinical correctness, they may not capture the messy, unstructured nature of real-world patient charts.
+    \item \textbf{Language Restriction:} The reference corpus is restricted to English-language PMC literature and WHO documents, ignoring potentially critical global clinical findings published in Spanish or Portuguese.
+    \item \textbf{Token Overlap vs. Correctness:} Verbatim token overlap measures attribution consistency, but is not a direct guarantee of clinical accuracy. A model could copy a factually incorrect guideline statement verbatim and pass validation.
+    \item \textbf{Pathogen Generalization:} The system was optimized specifically for arboviruses (Dengue, Zika, Chikungunya, West Nile). Generalization to other medical domains (e.g., oncology, cardiology) requires separate ingestion and parameter tuning.
+\end{itemize}
+
+\subsection{Study Limitations}
+\begin{enumerate}
+    \item \textbf{Verbatim Token Overlap Boundaries:} The character-level token-overlap metric check is insensitive to semantic equivalence. Paraphrased claims that are clinically correct may fail validation, leading to unnecessary self-correction loops (guardrail overhead).
+    \item \textbf{Clinical Evaluation Bounds:} Our benchmarking is entirely automated using Ragas metrics and LLM judges. A clinician-in-the-loop study with medical trainees is required to evaluate actual usability and safety in clinical workflows.
+    \item \textbf{Corpus Scope:} The indexing is specific to emerging arboviruses, and results may not generalize to broader clinical fields without indexing additional medical databases.
+    \item \textbf{Safety Guideline Indexing Gaps:} The primary evaluation corpus lacks explicit non-steroidal anti-inflammatory drug (NSAID) contraindication guidelines for Dengue; consequently, the standard RAG systems trigger safe clinical abstention (reporting insufficient evidence) rather than active clinical warning alerts. Additionally, a pilot ingestion of seven targeted PMC guidelines successfully resolved indexing gaps for Dengue NSAID contraindications, showing that RAG systems can transition from safe abstention to active warnings; a full quantitative re-evaluation remains deferred for future work.
+    \item \textbf{Faithfulness-Relevancy Trade-off:} High citation thresholds ($T_{min} = 0.50$) improve faithfulness by forcing copy-paste structures, but severely impact the model's ability to summarize guidelines naturally. 
+    \item \textbf{Future Work:} Future work includes clinician-in-the-loop evaluation with medical trainees to validate clinical safety in real-world environments.
+\end{enumerate}

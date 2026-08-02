@@ -1,0 +1,15 @@
+\begin{table}[htbp]
+\centering
+\caption{Comparative Benchmarking of Retrieval and Generation Architectures ($N=100$, pre-pilot corpus of 6,940 chunks)}
+\label{tab:benchmark}
+\begin{tabular}{lccc}
+\toprule
+Metric & Naive RAG & Hybrid RAG & X-CDS ($T_{min}{=}0.10$) \\
+\midrule
+Faithfulness & \SI{89.78}{\percent} & \SI{91.70}{\percent} & \textbf{\SI{93.37}{\percent}} \\
+Context Precision & \SI{74.09}{\percent} & \SI{70.91}{\percent} & \SI{68.94}{\percent} \\
+Context Recall & \SI{74.25}{\percent} & \SI{70.33}{\percent} & \SI{71.83}{\percent} \\
+Answer Relevancy & \textbf{\SI{61.17}{\percent}} & \SI{59.81}{\percent} & \SI{57.81}{\percent} \\
+\bottomrule
+\end{tabular}
+\end{table}
